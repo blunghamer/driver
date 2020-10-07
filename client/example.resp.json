@@ -1,0 +1,1102 @@
+{
+    "id": "20201003_142809_00045_aj7m3",
+    "infoUri": "http://localhost:8080/ui/query.html?20201003_142809_00045_aj7m3",
+    "partialCancelUri": "http://localhost:8080/v1/statement/executing/partialCancel/20201003_142809_00045_aj7m3/0/y8ad747850ba628def18a4b2414700e05fcb89a5a/1",
+    "nextUri": "http://localhost:8080/v1/statement/executing/20201003_142809_00045_aj7m3/y8ad747850ba628def18a4b2414700e05fcb89a5a/1",
+    "columns": [
+        {
+            "name": "query_id",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        },
+        {
+            "name": "state",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        },
+        {
+            "name": "user",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        },
+        {
+            "name": "source",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        },
+        {
+            "name": "query",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        },
+        {
+            "name": "resource_group_id",
+            "type": "array(varchar)",
+            "typeSignature": {
+                "rawType": "array",
+                "arguments": [
+                    {
+                        "kind": "TYPE",
+                        "value": {
+                            "rawType": "varchar",
+                            "arguments": [
+                                {
+                                    "kind": "LONG",
+                                    "value": 2147483647
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "queued_time_ms",
+            "type": "bigint",
+            "typeSignature": {
+                "rawType": "bigint",
+                "arguments": []
+            }
+        },
+        {
+            "name": "analysis_time_ms",
+            "type": "bigint",
+            "typeSignature": {
+                "rawType": "bigint",
+                "arguments": []
+            }
+        },
+        {
+            "name": "planning_time_ms",
+            "type": "bigint",
+            "typeSignature": {
+                "rawType": "bigint",
+                "arguments": []
+            }
+        },
+        {
+            "name": "created",
+            "type": "timestamp",
+            "typeSignature": {
+                "rawType": "timestamp",
+                "arguments": []
+            }
+        },
+        {
+            "name": "started",
+            "type": "timestamp",
+            "typeSignature": {
+                "rawType": "timestamp",
+                "arguments": []
+            }
+        },
+        {
+            "name": "last_heartbeat",
+            "type": "timestamp",
+            "typeSignature": {
+                "rawType": "timestamp",
+                "arguments": []
+            }
+        },
+        {
+            "name": "end",
+            "type": "timestamp",
+            "typeSignature": {
+                "rawType": "timestamp",
+                "arguments": []
+            }
+        },
+        {
+            "name": "error_type",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        },
+        {
+            "name": "error_code",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        }
+    ],
+    "data": [
+        [
+            "20201003_122036_00001_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            0,
+            144,
+            209,
+            "1970-01-19 12:55:27.637",
+            "1970-01-19 12:55:27.637",
+            "1970-01-19 12:55:27.639",
+            "1970-01-19 12:55:27.639",
+            null,
+            null
+        ],
+        [
+            "20201003_142745_00044_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.queries",
+            [
+                "global"
+            ],
+            1,
+            3,
+            11,
+            "1970-01-19 12:55:35.266",
+            "1970-01-19 12:55:35.266",
+            "1970-01-19 12:55:35.266",
+            "1970-01-19 12:55:35.266",
+            null,
+            null
+        ],
+        [
+            "20201003_135845_00032_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            1,
+            2,
+            9,
+            "1970-01-19 12:55:33.525",
+            "1970-01-19 12:55:33.525",
+            "1970-01-19 12:55:33.527",
+            "1970-01-19 12:55:33.527",
+            null,
+            null
+        ],
+        [
+            "20201003_131312_00021_aj7m3",
+            "FAILED",
+            "bernd",
+            "cPrestoClient",
+            "show tables from system",
+            [
+                "global"
+            ],
+            1,
+            1,
+            0,
+            "1970-01-19 12:55:30.792",
+            "1970-01-19 12:55:30.792",
+            "1970-01-19 12:55:30.792",
+            "1970-01-19 12:55:30.792",
+            "USER_ERROR",
+            "SCHEMA_NOT_FOUND"
+        ],
+        [
+            "20201003_124105_00006_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            5,
+            1,
+            10,
+            "1970-01-19 12:55:28.865",
+            "1970-01-19 12:55:28.865",
+            "1970-01-19 12:55:28.867",
+            "1970-01-19 12:55:28.867",
+            null,
+            null
+        ],
+        [
+            "20201003_141715_00040_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            0,
+            1,
+            8,
+            "1970-01-19 12:55:34.635",
+            "1970-01-19 12:55:34.635",
+            "1970-01-19 12:55:34.635",
+            "1970-01-19 12:55:34.635",
+            null,
+            null
+        ],
+        [
+            "20201003_124328_00008_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            1,
+            1,
+            12,
+            "1970-01-19 12:55:29.008",
+            "1970-01-19 12:55:29.008",
+            "1970-01-19 12:55:29.010",
+            "1970-01-19 12:55:29.010",
+            null,
+            null
+        ],
+        [
+            "20201003_141839_00041_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            1,
+            1,
+            8,
+            "1970-01-19 12:55:34.720",
+            "1970-01-19 12:55:34.720",
+            "1970-01-19 12:55:34.720",
+            "1970-01-19 12:55:34.720",
+            null,
+            null
+        ],
+        [
+            "20201003_135908_00033_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            0,
+            1,
+            7,
+            "1970-01-19 12:55:33.548",
+            "1970-01-19 12:55:33.548",
+            "1970-01-19 12:55:33.550",
+            "1970-01-19 12:55:33.550",
+            null,
+            null
+        ],
+        [
+            "20201003_122316_00002_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            1,
+            1,
+            19,
+            "1970-01-19 12:55:27.797",
+            "1970-01-19 12:55:27.797",
+            "1970-01-19 12:55:27.799",
+            "1970-01-19 12:55:27.799",
+            null,
+            null
+        ],
+        [
+            "20201003_131340_00023_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            0,
+            1,
+            17,
+            "1970-01-19 12:55:30.820",
+            "1970-01-19 12:55:30.820",
+            "1970-01-19 12:55:30.822",
+            "1970-01-19 12:55:30.822",
+            null,
+            null
+        ],
+        [
+            "20201003_131527_00028_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            0,
+            2,
+            9,
+            "1970-01-19 12:55:30.928",
+            "1970-01-19 12:55:30.928",
+            "1970-01-19 12:55:30.930",
+            "1970-01-19 12:55:30.930",
+            null,
+            null
+        ],
+        [
+            "20201003_131121_00019_aj7m3",
+            "FAILED",
+            "bernd",
+            "cPrestoClient",
+            "system",
+            null,
+            0,
+            0,
+            0,
+            "1970-01-19 12:55:30.681",
+            "1970-01-19 12:55:30.681",
+            "1970-01-19 12:55:30.681",
+            "1970-01-19 12:55:30.681",
+            "USER_ERROR",
+            "SYNTAX_ERROR"
+        ],
+        [
+            "20201003_122010_00000_aj7m3",
+            "FAILED",
+            "bernd",
+            "cPrestoClient",
+            "select * from sample_07",
+            [
+                "global"
+            ],
+            10,
+            24,
+            0,
+            "1970-01-19 12:55:27.610",
+            "1970-01-19 12:55:27.610",
+            "1970-01-19 12:55:27.611",
+            "1970-01-19 12:55:27.610",
+            "USER_ERROR",
+            "CATALOG_NOT_FOUND"
+        ],
+        [
+            "20201003_141639_00039_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            0,
+            1,
+            6,
+            "1970-01-19 12:55:34.600",
+            "1970-01-19 12:55:34.600",
+            "1970-01-19 12:55:34.601",
+            "1970-01-19 12:55:34.601",
+            null,
+            null
+        ],
+        [
+            "20201003_130930_00018_aj7m3",
+            "FAILED",
+            "bernd",
+            "cPrestoClient",
+            "use system",
+            [
+                "global"
+            ],
+            0,
+            0,
+            0,
+            "1970-01-19 12:55:30.570",
+            "1970-01-19 12:55:30.570",
+            "1970-01-19 12:55:30.571",
+            "1970-01-19 12:55:30.570",
+            "USER_ERROR",
+            "NOT_FOUND"
+        ],
+        [
+            "20201003_125720_00011_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            1,
+            2,
+            10,
+            "1970-01-19 12:55:29.841",
+            "1970-01-19 12:55:29.841",
+            "1970-01-19 12:55:29.843",
+            "1970-01-19 12:55:29.843",
+            null,
+            null
+        ],
+        [
+            "20201003_142223_00043_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.queries",
+            [
+                "global"
+            ],
+            0,
+            2,
+            8,
+            "1970-01-19 12:55:34.943",
+            "1970-01-19 12:55:34.943",
+            "1970-01-19 12:55:34.943",
+            "1970-01-19 12:55:34.943",
+            null,
+            null
+        ],
+        [
+            "20201003_125929_00012_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            1,
+            1,
+            9,
+            "1970-01-19 12:55:29.969",
+            "1970-01-19 12:55:29.969",
+            "1970-01-19 12:55:29.971",
+            "1970-01-19 12:55:29.971",
+            null,
+            null
+        ],
+        [
+            "20201003_130750_00015_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            0,
+            1,
+            7,
+            "1970-01-19 12:55:30.470",
+            "1970-01-19 12:55:30.470",
+            "1970-01-19 12:55:30.472",
+            "1970-01-19 12:55:30.472",
+            null,
+            null
+        ],
+        [
+            "20201003_125430_00009_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            1,
+            1,
+            9,
+            "1970-01-19 12:55:29.671",
+            "1970-01-19 12:55:29.671",
+            "1970-01-19 12:55:29.673",
+            "1970-01-19 12:55:29.673",
+            null,
+            null
+        ],
+        [
+            "20201003_131358_00025_aj7m3",
+            "FAILED",
+            "bernd",
+            "cPrestoClient",
+            "show tables",
+            [
+                "global"
+            ],
+            0,
+            0,
+            0,
+            "1970-01-19 12:55:30.838",
+            "1970-01-19 12:55:30.838",
+            "1970-01-19 12:55:30.839",
+            "1970-01-19 12:55:30.838",
+            "USER_ERROR",
+            "SCHEMA_NOT_FOUND"
+        ],
+        [
+            "20201003_135611_00031_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            0,
+            1,
+            9,
+            "1970-01-19 12:55:33.372",
+            "1970-01-19 12:55:33.372",
+            "1970-01-19 12:55:33.374",
+            "1970-01-19 12:55:33.374",
+            null,
+            null
+        ],
+        [
+            "20201003_123829_00005_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            1,
+            1,
+            12,
+            "1970-01-19 12:55:28.710",
+            "1970-01-19 12:55:28.710",
+            "1970-01-19 12:55:28.712",
+            "1970-01-19 12:55:28.712",
+            null,
+            null
+        ],
+        [
+            "20201003_131404_00026_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show tables from runtime",
+            [
+                "global"
+            ],
+            0,
+            4,
+            80,
+            "1970-01-19 12:55:30.844",
+            "1970-01-19 12:55:30.844",
+            "1970-01-19 12:55:30.846",
+            "1970-01-19 12:55:30.846",
+            null,
+            null
+        ],
+        [
+            "20201003_141209_00036_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            1,
+            1,
+            8,
+            "1970-01-19 12:55:34.330",
+            "1970-01-19 12:55:34.330",
+            "1970-01-19 12:55:34.332",
+            "1970-01-19 12:55:34.332",
+            null,
+            null
+        ],
+        [
+            "20201003_131320_00022_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show schemas",
+            [
+                "global"
+            ],
+            0,
+            8,
+            58,
+            "1970-01-19 12:55:30.800",
+            "1970-01-19 12:55:30.800",
+            "1970-01-19 12:55:30.802",
+            "1970-01-19 12:55:30.802",
+            null,
+            null
+        ],
+        [
+            "20201003_130908_00017_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            0,
+            1,
+            7,
+            "1970-01-19 12:55:30.548",
+            "1970-01-19 12:55:30.548",
+            "1970-01-19 12:55:30.550",
+            "1970-01-19 12:55:30.550",
+            null,
+            null
+        ],
+        [
+            "20201003_131949_00029_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            0,
+            1,
+            8,
+            "1970-01-19 12:55:31.189",
+            "1970-01-19 12:55:31.189",
+            "1970-01-19 12:55:31.191",
+            "1970-01-19 12:55:31.191",
+            null,
+            null
+        ],
+        [
+            "20201003_125542_00010_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            1,
+            1,
+            8,
+            "1970-01-19 12:55:29.742",
+            "1970-01-19 12:55:29.742",
+            "1970-01-19 12:55:29.744",
+            "1970-01-19 12:55:29.744",
+            null,
+            null
+        ],
+        [
+            "20201003_131353_00024_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show tables from runtime",
+            [
+                "global"
+            ],
+            0,
+            9,
+            109,
+            "1970-01-19 12:55:30.833",
+            "1970-01-19 12:55:30.833",
+            "1970-01-19 12:55:30.835",
+            "1970-01-19 12:55:30.835",
+            null,
+            null
+        ],
+        [
+            "20201003_141618_00038_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            0,
+            1,
+            6,
+            "1970-01-19 12:55:34.579",
+            "1970-01-19 12:55:34.579",
+            "1970-01-19 12:55:34.581",
+            "1970-01-19 12:55:34.581",
+            null,
+            null
+        ],
+        [
+            "20201003_140100_00034_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            1,
+            1,
+            11,
+            "1970-01-19 12:55:33.661",
+            "1970-01-19 12:55:33.661",
+            "1970-01-19 12:55:33.663",
+            "1970-01-19 12:55:33.663",
+            null,
+            null
+        ],
+        [
+            "20201003_142200_00042_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show tables from runtime",
+            [
+                "global"
+            ],
+            1,
+            3,
+            71,
+            "1970-01-19 12:55:34.920",
+            "1970-01-19 12:55:34.920",
+            "1970-01-19 12:55:34.921",
+            "1970-01-19 12:55:34.921",
+            null,
+            null
+        ],
+        [
+            "20201003_130557_00013_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            1,
+            1,
+            10,
+            "1970-01-19 12:55:30.358",
+            "1970-01-19 12:55:30.358",
+            "1970-01-19 12:55:30.360",
+            "1970-01-19 12:55:30.360",
+            null,
+            null
+        ],
+        [
+            "20201003_123723_00004_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            0,
+            1,
+            12,
+            "1970-01-19 12:55:28.644",
+            "1970-01-19 12:55:28.644",
+            "1970-01-19 12:55:28.646",
+            "1970-01-19 12:55:28.646",
+            null,
+            null
+        ],
+        [
+            "20201003_124315_00007_aj7m3",
+            "FAILED",
+            "bernd",
+            "cPrestoClient",
+            "show catalox",
+            null,
+            0,
+            0,
+            0,
+            "1970-01-19 12:55:28.995",
+            "1970-01-19 12:55:28.995",
+            "1970-01-19 12:55:28.995",
+            "1970-01-19 12:55:28.995",
+            "USER_ERROR",
+            "SYNTAX_ERROR"
+        ],
+        [
+            "20201003_130833_00016_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            0,
+            1,
+            8,
+            "1970-01-19 12:55:30.514",
+            "1970-01-19 12:55:30.514",
+            "1970-01-19 12:55:30.516",
+            "1970-01-19 12:55:30.516",
+            null,
+            null
+        ],
+        [
+            "20201003_131159_00020_aj7m3",
+            "FAILED",
+            "bernd",
+            "cPrestoClient",
+            "show tables",
+            [
+                "global"
+            ],
+            1,
+            3,
+            0,
+            "1970-01-19 12:55:30.719",
+            "1970-01-19 12:55:30.719",
+            "1970-01-19 12:55:30.720",
+            "1970-01-19 12:55:30.719",
+            "USER_ERROR",
+            "SCHEMA_NOT_FOUND"
+        ],
+        [
+            "20201003_131512_00027_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            0,
+            3,
+            10,
+            "1970-01-19 12:55:30.913",
+            "1970-01-19 12:55:30.913",
+            "1970-01-19 12:55:30.915",
+            "1970-01-19 12:55:30.915",
+            null,
+            null
+        ],
+        [
+            "20201003_141453_00037_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            0,
+            1,
+            9,
+            "1970-01-19 12:55:34.494",
+            "1970-01-19 12:55:34.494",
+            "1970-01-19 12:55:34.497",
+            "1970-01-19 12:55:34.497",
+            null,
+            null
+        ],
+        [
+            "20201003_135146_00030_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            1,
+            1,
+            9,
+            "1970-01-19 12:55:33.106",
+            "1970-01-19 12:55:33.106",
+            "1970-01-19 12:55:33.108",
+            "1970-01-19 12:55:33.108",
+            null,
+            null
+        ],
+        [
+            "20201003_142809_00045_aj7m3",
+            "RUNNING",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.queries",
+            [
+                "global"
+            ],
+            0,
+            3,
+            15,
+            "1970-01-19 12:55:35.290",
+            "1970-01-19 12:55:35.290",
+            "1970-01-19 12:55:35.290",
+            null,
+            null,
+            null
+        ],
+        [
+            "20201003_123647_00003_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            1,
+            1,
+            15,
+            "1970-01-19 12:55:28.608",
+            "1970-01-19 12:55:28.608",
+            "1970-01-19 12:55:28.610",
+            "1970-01-19 12:55:28.610",
+            null,
+            null
+        ],
+        [
+            "20201003_140147_00035_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "select * from runtime.nodes",
+            [
+                "global"
+            ],
+            0,
+            1,
+            7,
+            "1970-01-19 12:55:33.707",
+            "1970-01-19 12:55:33.707",
+            "1970-01-19 12:55:33.709",
+            "1970-01-19 12:55:33.709",
+            null,
+            null
+        ],
+        [
+            "20201003_130730_00014_aj7m3",
+            "FINISHED",
+            "bernd",
+            "cPrestoClient",
+            "show catalogs",
+            [
+                "global"
+            ],
+            1,
+            1,
+            13,
+            "1970-01-19 12:55:30.450",
+            "1970-01-19 12:55:30.450",
+            "1970-01-19 12:55:30.452",
+            "1970-01-19 12:55:30.452",
+            null,
+            null
+        ]
+    ],
+    "stats": {
+        "state": "RUNNING",
+        "queued": false,
+        "scheduled": true,
+        "nodes": 1,
+        "totalSplits": 17,
+        "queuedSplits": 0,
+        "runningSplits": 16,
+        "completedSplits": 1,
+        "cpuTimeMillis": 7,
+        "wallTimeMillis": 7,
+        "queuedTimeMillis": 0,
+        "elapsedTimeMillis": 105,
+        "processedRows": 46,
+        "processedBytes": 6536,
+        "physicalInputBytes": 6536,
+        "peakMemoryBytes": 0,
+        "spilledBytes": 0,
+        "rootStage": {
+            "stageId": "0",
+            "state": "FLUSHING",
+            "done": false,
+            "nodes": 1,
+            "totalSplits": 16,
+            "queuedSplits": 0,
+            "runningSplits": 16,
+            "completedSplits": 0,
+            "cpuTimeMillis": 2,
+            "wallTimeMillis": 2,
+            "processedRows": 46,
+            "processedBytes": 8359,
+            "physicalInputBytes": 0,
+            "subStages": [
+                {
+                    "stageId": "1",
+                    "state": "FINISHED",
+                    "done": true,
+                    "nodes": 1,
+                    "totalSplits": 1,
+                    "queuedSplits": 0,
+                    "runningSplits": 0,
+                    "completedSplits": 1,
+                    "cpuTimeMillis": 5,
+                    "wallTimeMillis": 5,
+                    "processedRows": 46,
+                    "processedBytes": 6536,
+                    "physicalInputBytes": 6536,
+                    "subStages": []
+                }
+            ]
+        },
+        "progressPercentage": 5.882352941176471
+    },
+    "warnings": []
+}
