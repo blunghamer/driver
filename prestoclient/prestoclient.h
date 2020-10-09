@@ -32,22 +32,23 @@
 #define EASYPTORA_PRESTOCLIENT_HH
 
 #include <stddef.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* --- Defines -------------------------------------------------------------------------------------------------------- */
-#define PRESTOCLIENT_SOURCE              "cPrestoClient"  /**< Client name sent to Presto server */
-#define PRESTOCLIENT_VERSION             "0.3.2"          /**< PrestoClient version string */
-#define PRESTOCLIENT_URLTIMEOUT           5000            /**< Timeout in millisec to wait for Presto server to respond */
-#define PRESTOCLIENT_UPDATEWAITTIMEMSEC   20              /**< Wait time in millisec to wait between requests to Presto server */
-#define PRESTOCLIENT_RETRIEVEWAITTIMEMSEC 20              /**< Wait time in millisec to wait before getting next data packet */
-#define PRESTOCLIENT_RETRYWAITTIMEMSEC    100             /**< Wait time in millisec to wait before retrying a request */
-#define PRESTOCLIENT_MAXIMUMRETRIES       5               /**< Maximum number of retries for request in case of 503 errors */
-#define PRESTOCLIENT_DEFAULT_PORT         8080            /**< Default tcp port of presto server */
-#define PRESTOCLIENT_DEFAULT_CATALOG      "system"          /**< Default presto catalog name */
-#define PRESTOCLIENT_DEFAULT_SCHEMA       "runtime"       /**< Default presto schema name */
+#define PRESTOCLIENT_SOURCE              "cPrestoClient"  //!< Client name sent to Presto server
+#define PRESTOCLIENT_VERSION             "0.3.2"          //!< PrestoClient version string
+#define PRESTOCLIENT_URLTIMEOUT           5000            //!< Timeout in millisec to wait for Presto server to respond
+#define PRESTOCLIENT_UPDATEWAITTIMEMSEC   20              //!< Wait time in millisec to wait between requests to Presto server
+#define PRESTOCLIENT_RETRIEVEWAITTIMEMSEC 20              //!< Wait time in millisec to wait before getting next data packet
+#define PRESTOCLIENT_RETRYWAITTIMEMSEC    100             //!< Wait time in millisec to wait before retrying a request
+#define PRESTOCLIENT_MAXIMUMRETRIES       5               //!< Maximum number of retries for request in case of 503 errors
+#define PRESTOCLIENT_DEFAULT_PORT         8080            //!< Default tcp port of presto server
+#define PRESTOCLIENT_DEFAULT_CATALOG      "system"        //!< Default presto catalog name
+#define PRESTOCLIENT_DEFAULT_SCHEMA       "runtime"       //!< Default presto schema name
 
 /* --- Enums ---------------------------------------------------------------------------------------------------------- */
 /**
@@ -84,8 +85,6 @@ enum E_FIELDTYPES
 	PRESTOCLIENT_TYPE_JSON
 };
 
-// Please maintain typenames in lockstep to the enum above
-extern const char* PRESTO_TYPENAMES[22];
 
 
 /**
@@ -139,7 +138,8 @@ PRESTOCLIENT*           prestoclient_init                       ( const char *pr
                                                                 , const char *in_user
                                                                 , const char *in_pwd
 																, const char *in_timezone
-																, const char *in_language);
+																, const char *in_language
+																, bool trace_http);
 
 /**
  * \brief               Get the serverinfo to see if there is a server we even an conncect to...
@@ -195,6 +195,9 @@ PRESTOCLIENT_RESULT*    prestoclient_execute                    (PRESTOCLIENT *p
 																, void (*in_describe_callback_function)(void*, void*)
 																, void *in_client_object);
 
+void                    prestoclient_deleteresult               (PRESTOCLIENT *prestoclient
+                                                                ,PRESTOCLIENT_RESULT *prepared_result                                                                                                                      
+																);
 
 
 /**

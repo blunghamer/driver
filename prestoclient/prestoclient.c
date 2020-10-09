@@ -24,30 +24,8 @@
 #include <curl/curl.h>
 #include <assert.h>
 
-// Be careful this has to be extended in lockstep with the ENUM
-const char *PRESTO_TYPENAMES[22] = {
-	"PRESTO_TYPE_UNDEFINED",
-	"PRESTO_TYPE_VARCHAR",
-	"PRESTO_TYPE_CHAR",
-	"PRESTO_TYPE_VARBINARY",
-	"PRESTO_TYPE_TINYINT",
-	"PRESTO_TYPE_SMALLINT",
-	"PRESTO_TYPE_INTEGER",
-	"PRESTO_TYPE_BIGINT",
-	"PRESTO_TYPE_BOOLEAN",
-	"PRESTO_TYPE_REAL",
-	"PRESTO_TYPE_DOUBLE",
-	"PRESTO_TYPE_DECIMAL",
-	"PRESTO_TYPE_DATE",
-	"PRESTO_TYPE_TIME",
-	"PRESTO_TYPE_TIME_WITH_TIME_ZONE",
-	"PRESTO_TYPE_TIMESTAMP",
-	"PRESTO_TYPE_TIMESTAMP_WITH_TIME_ZONE",
-	"PRESTO_TYPE_INTERVAL_YEAR_TO_MONTH",
-	"PRESTO_TYPE_INTERVAL_DAY_TO_SECOND",
-	"PRESTO_TYPE_ARRAY",
-	"PRESTO_TYPE_MAP",
-	"PRESTO_TYPE_JSON"};
+// forward declarations
+static void remove_result(PRESTOCLIENT_RESULT *result);
 
 /* --- Private functions ---------------------------------------------------------------------------------------------- */
 
@@ -134,6 +112,53 @@ PRESTOCLIENT_FIELD *new_prestofield()
 	return field;
 }
 
+static void delete_prestofield(PRESTOCLIENT_FIELD *field)
+{
+	if (!field)
+		return;
+
+	if (field->name)
+		free(field->name);
+
+	if (field->data)
+		free(field->data);
+
+	free(field);
+}
+
+PRESTOCLIENT_TABLEBUFFER* new_tablebuffer(size_t initialsize) {
+	PRESTOCLIENT_TABLEBUFFER* tab = (PRESTOCLIENT_TABLEBUFFER*)malloc(sizeof(PRESTOCLIENT_TABLEBUFFER));
+	tab->nalloc = initialsize;	
+	tab->rowbuff = (unsigned char**)malloc(sizeof(unsigned char*) * tab->nalloc);
+	tab->nrow = 0;
+	tab->ncol = 0;
+	tab->ndata = 0;
+	tab->rowidx = -1;
+	return tab;
+}
+
+void grow_tablebuffer(PRESTOCLIENT_TABLEBUFFER* tab, size_t addsize) {
+	size_t newsz = tab->nalloc + addsize;	
+	tab->rowbuff = realloc(tab->rowbuff, sizeof(unsigned char*) * newsz );
+	tab->nalloc = newsz;			
+}
+
+static void delete_tablebuffer(PRESTOCLIENT_TABLEBUFFER *tab) {
+	if (!tab) 
+		return;
+	
+	if (tab->rowbuff) {
+		for (size_t zz = 0 ; zz < tab->ndata ; zz++) {
+			if (tab->rowbuff[zz]) {
+				free(tab->rowbuff[zz]);
+			}
+		}
+		free(tab->rowbuff);
+	}
+
+	free(tab);
+}
+
 static PRESTOCLIENT_RESULT *new_prestoresult()
 {
 	PRESTOCLIENT_RESULT *result = (PRESTOCLIENT_RESULT *)malloc(sizeof(PRESTOCLIENT_RESULT));
@@ -158,6 +183,7 @@ static PRESTOCLIENT_RESULT *new_prestoresult()
 	result->prepared_stmt_name = NULL;
 	result->columns = NULL;
 	result->columncount = 0;
+	result->tablebuff = NULL;
 	result->columninfoavailable = false;
 	result->columninfoprinted = false;
 	result->currentdatacolumn = -1;
@@ -173,93 +199,6 @@ static PRESTOCLIENT_RESULT *new_prestoresult()
 	return result;
 }
 
-static PRESTOCLIENT *new_prestoclient()
-{
-	PRESTOCLIENT *client = (PRESTOCLIENT *)malloc(sizeof(PRESTOCLIENT));
-
-	if (!client)
-		exit(1);
-
-	client->baseurl = NULL;
-	client->useragent = NULL;
-	client->protocol = NULL;
-	client->server = NULL;
-	client->port = PRESTOCLIENT_DEFAULT_PORT;
-	client->catalog = NULL;
-	client->user = NULL;
-	client->timezone = NULL;
-	client->language = NULL;
-	client->results = NULL;
-	client->active_results = 0;
-
-	return client;
-}
-
-static void delete_prestofield(PRESTOCLIENT_FIELD *field)
-{
-	if (!field)
-		return;
-
-	if (field->name)
-		free(field->name);
-
-	if (field->data)
-		free(field->data);
-
-	free(field);
-}
-
-// Add this result set to the PRESTOCLIENT
-static void register_result(PRESTOCLIENT_RESULT *result)
-{
-	PRESTOCLIENT *client;
-
-	if (!result)
-		return;
-
-	if (!result->client)
-		return;
-
-	client = result->client;
-
-	client->active_results++;
-
-	if (client->active_results == 1)
-		client->results = (PRESTOCLIENT_RESULT **)malloc(sizeof(PRESTOCLIENT_RESULT *));
-	else
-		client->results = (PRESTOCLIENT_RESULT **)realloc((PRESTOCLIENT_RESULT **)client->results, client->active_results * sizeof(PRESTOCLIENT_RESULT *));
-
-	if (!client->results)
-		exit(1);
-
-	client->results[client->active_results - 1] = result;
-}
-
-static void reset_prestoresult(PRESTOCLIENT_RESULT *result)
-{
-	if (!result)
-		return;
-
-	json_delete_parser(result->json);
-	result->json = NULL;
-	json_delete_lexer(result->lexer);
-	result->lexer = NULL;
-
-	for (size_t i = 0; i < result->columncount; i++)
-		delete_prestofield(result->columns[i]);
-
-	if (result->columns)
-	{
-		free(result->columns);
-		result->columns = NULL;
-	}
-
-	result->columninfoavailable = false;
-	result->columninfoprinted = false;
-	result->dataavailable = false;
-	result->currentdatacolumn = -1;
-	result->columncount = 0;
-}
 
 // Delete this result set from memory and remove from PRESTOCLIENT
 static void delete_prestoresult(PRESTOCLIENT_RESULT *result)
@@ -267,10 +206,12 @@ static void delete_prestoresult(PRESTOCLIENT_RESULT *result)
 	if (!result)
 		return;
 
+	// disassociate result from PRESTOCLIENT buffer
+	remove_result(result);
+
 	if (result->hcurl)
 	{
 		curl_easy_cleanup(result->hcurl);
-
 		if (result->curl_error_buffer)
 			free(result->curl_error_buffer);
 	}
@@ -303,14 +244,172 @@ static void delete_prestoresult(PRESTOCLIENT_RESULT *result)
 	if (result->prepared_stmt_name)
 		free(result->prepared_stmt_name);
 
-	for (size_t i = 0; i < result->columncount; i++)
-		delete_prestofield(result->columns[i]);
-
-	if (result->columns)
+	if (result->columns) {
+		for (size_t i = 0; i < result->columncount; i++) {
+			if (result->columns[i])
+				delete_prestofield(result->columns[i]);
+		}
 		free(result->columns);
+		result->columns = NULL;
+	}
+		
+	if (result->tablebuff) {
+		delete_tablebuffer(result->tablebuff);
+		result->tablebuff = NULL;		
+	}
 
 	free(result);
 }
+
+static void reset_prestoresult(PRESTOCLIENT_RESULT *result)
+{
+	if (!result)
+		return;
+
+	json_delete_parser(result->json);
+	result->json = NULL;
+	json_delete_lexer(result->lexer);
+	result->lexer = NULL;
+
+	if (result->columns) {
+		for (size_t i = 0; i < result->columncount; i++) {
+			if (result->columns[i])
+				delete_prestofield(result->columns[i]);
+		}
+		free(result->columns);
+		result->columns = NULL;
+	}
+
+	if (result->tablebuff) {
+		delete_tablebuffer(result->tablebuff);
+		result->tablebuff = NULL;		
+	}
+
+	result->columninfoavailable = false;
+	result->columninfoprinted = false;
+	result->dataavailable = false;
+	result->currentdatacolumn = -1;
+	result->columncount = 0;
+}
+
+
+
+static PRESTOCLIENT *new_prestoclient(bool trace_http)
+{
+	PRESTOCLIENT *client = (PRESTOCLIENT *)malloc(sizeof(PRESTOCLIENT));
+
+	if (!client)
+		exit(1);
+
+	client->baseurl = NULL;
+	client->useragent = NULL;
+	client->protocol = NULL;
+	client->server = NULL;
+	client->port = PRESTOCLIENT_DEFAULT_PORT;
+	client->catalog = NULL;
+	client->user = NULL;
+	client->timezone = NULL;
+	client->language = NULL;
+	client->results = NULL;
+	client->active_results = 0;
+	client->trace_http = trace_http;
+
+	return client;
+}
+
+
+/*
+ * The write callback function. This function will be called for every row of
+ * query data and append to internal row buffer
+ */
+static void write_callback_buffer(void *in_userdata, void *in_result)
+{
+	// userdata is null in this call...
+	PRESTOCLIENT_RESULT *result = (PRESTOCLIENT_RESULT *)in_result;	
+	size_t columncount = prestoclient_getcolumncount(result);
+
+	size_t growby = 10;
+
+	if (!result->tablebuff) {
+		result->tablebuff = new_tablebuffer(columncount * growby);
+		result->tablebuff->ncol = columncount;
+	}
+
+	if (result->tablebuff->nalloc <= (columncount + result->tablebuff->ndata) ) {		
+		grow_tablebuffer(result->tablebuff, columncount * growby);
+	}
+
+	result->tablebuff->nrow++;
+
+	for (size_t idx = 0; idx < columncount; idx++)
+	{		
+		char * flddata = prestoclient_getcolumndata(result, idx);		
+		result->tablebuff->rowbuff[result->tablebuff->ndata] = (unsigned char*)malloc(strlen(flddata) + 1);
+		strcpy(result->tablebuff->rowbuff[result->tablebuff->ndata], (unsigned char*)flddata);
+		result->tablebuff->ndata++;		
+	}
+}
+
+
+// Add this result set to the PRESTOCLIENT
+static void add_result(PRESTOCLIENT_RESULT *result)
+{
+	PRESTOCLIENT *client;
+
+	if (!result)
+		return;
+
+	if (!result->client)
+		return;
+
+	client = result->client;
+
+	client->active_results++;
+
+	if (client->active_results == 1)
+		client->results = (PRESTOCLIENT_RESULT **)malloc(sizeof(PRESTOCLIENT_RESULT *));
+	else
+		client->results = (PRESTOCLIENT_RESULT **)realloc((PRESTOCLIENT_RESULT **)client->results, client->active_results * sizeof(PRESTOCLIENT_RESULT *));
+
+	if (!client->results)
+		exit(1);
+
+	client->results[client->active_results - 1] = result;
+}
+
+static void remove_result(PRESTOCLIENT_RESULT *result) {
+	PRESTOCLIENT *client;
+
+	if (!result)
+		return;
+
+	if (!result->client)
+		return;
+
+	client = result->client;
+
+	if (client->active_results == 0)
+		return;
+
+	bool found = false;
+	for (size_t idx=0; idx < client->active_results ; idx++) {
+		if (client->results[idx] == result ) {
+			found = true;
+		}
+		if (found && (idx+1) < client->active_results){
+			client->results[idx] = client->results[idx+1];
+		}
+	}
+	client->active_results--;
+
+	if (client->active_results == 0) {
+		free(client->results);
+		client->results = NULL;
+	} else {
+		client->results = (PRESTOCLIENT_RESULT **)realloc((PRESTOCLIENT_RESULT **)client->results, client->active_results * sizeof(PRESTOCLIENT_RESULT *));
+	}
+}
+
 
 // Add a key/value to curl header list
 static void add_headerline(struct curl_slist **header, char *name, char *value)
@@ -382,9 +481,6 @@ void split(const char *str, char sep, split_fn fun, void *data)
 	fun(str + start, stop - start, data);
 }
 
-void set_prepared(const char *str, size_t len, void *data)
-{
-}
 
 size_t findinstring(const char *str, char sep)
 {
@@ -405,7 +501,7 @@ static size_t header_callback(char *buffer, size_t size,
 	// header set is: "X-Presto-Added-Prepare: qryname=select+*+from*...
 	if (length > 26 && strncmp("X-Presto-Added-Prepare", buffer, 22) == 0)
 	{
-		printf("can work with prepared statement: >%.*s< items: %i size: %i \n", length, buffer, nitems, size);
+		printf("can work with prepared statement: >%.*s< items: %li size: %li \n", (int)length, buffer, nitems, size);
 		PRESTOCLIENT_RESULT *result = (PRESTOCLIENT_RESULT *)userdata;
 		size_t cidx = findinstring(buffer, '=');
 		if (cidx > 25)
@@ -475,7 +571,8 @@ static unsigned int openuri(enum E_HTTP_REQUEST_TYPES in_request_type,
 	}
 
 	// set verbose output on curl
-	curl_easy_setopt(hcurl, CURLOPT_VERBOSE, 1L);
+	if (result->client->trace_http)
+		curl_easy_setopt(hcurl, CURLOPT_VERBOSE, 1L);
 
 	// URL
 	if (in_request_type == PRESTOCLIENT_HTTP_REQUEST_TYPE_POST)
@@ -778,7 +875,7 @@ char *prestoclient_getversion()
 
 PRESTOCLIENT *prestoclient_init(const char *in_protocol, const char *in_server, const unsigned int *in_port,
 								const char *in_catalog, const char *in_user, const char *in_pwd,
-								const char *in_timezone, const char *in_language)
+								const char *in_timezone, const char *in_language, bool trace_http)
 {
 	PRESTOCLIENT *client = NULL;
 	char *uasource, *uaversion, *defaultcatalog;
@@ -792,7 +889,7 @@ PRESTOCLIENT *prestoclient_init(const char *in_protocol, const char *in_server, 
 
 	if (in_server && strlen(in_server) > 0)
 	{
-		client = new_prestoclient();
+		client = new_prestoclient(trace_http);
 		length = (strlen(uasource) + strlen(uaversion) + 2) * sizeof(char);
 		client->useragent = (char *)malloc(length);
 		if (!client->useragent)
@@ -891,7 +988,8 @@ void prestoclient_close(PRESTOCLIENT *prestoclient)
 	if (prestoclient->results)
 	{
 		for (size_t i = 0; i < prestoclient->active_results; i++)
-			delete_prestoresult(prestoclient->results[i]);
+			if (prestoclient->results[i])
+				delete_prestoresult(prestoclient->results[i]);
 
 		free(prestoclient->results);
 	}
@@ -936,17 +1034,17 @@ char *make_url(const char *base_url, const char *url_part)
 	return url;
 }
 
-char *prestoclient_serverinfo(PRESTOCLIENT *prestoclient)
+char* prestoclient_serverinfo(PRESTOCLIENT *prestoclient)
 {
 	if (!prestoclient)
 	{
-		printf("Unable to work without valid prestoclient %s\n");
 		return NULL;
 	}
 
 	CURLcode res;
 	struct MemoryStruct ret; 
   	ret.memory = (char*)malloc(1); 
+	ret.memory[0]='\0';
   	ret.size = 0; 
 
 	CURL *curl = curl_easy_init();
@@ -967,10 +1065,12 @@ char *prestoclient_serverinfo(PRESTOCLIENT *prestoclient)
 	if (res != CURLE_OK)
 	{
 		fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+		free(ret.memory);
+		ret.memory = NULL;
 	}
 	
 	curl_easy_cleanup(curl);
-	return ret.memory;
+	return ret.memory;	
 }
 
 PRESTOCLIENT_RESULT *prestoclient_query(PRESTOCLIENT *prestoclient, const char *in_sql_statement, const char *in_schema,
@@ -978,13 +1078,16 @@ PRESTOCLIENT_RESULT *prestoclient_query(PRESTOCLIENT *prestoclient, const char *
 										void (*in_describe_callback_function)(void *, void *),
 										void *in_client_object)
 {
+	if (!prestoclient)
+	{
+		return NULL;
+	}
+
 	PRESTOCLIENT_RESULT *result = NULL;
-	char *uasource, *defschema, *query_url;
+	char *defschema;
 	unsigned long buffersize;
 
-	uasource = PRESTOCLIENT_SOURCE;
 	defschema = PRESTOCLIENT_DEFAULT_SCHEMA;
-	query_url = PRESTOCLIENT_QUERY_URL;
 	buffersize = PRESTOCLIENT_CURL_BUFFERSIZE;
 
 	if (prestoclient && in_sql_statement && strlen(in_sql_statement) > 0)
@@ -1016,7 +1119,7 @@ PRESTOCLIENT_RESULT *prestoclient_query(PRESTOCLIENT *prestoclient, const char *
 		result->lastresponsebuffersize = buffersize;
 
 		// Add resultset to the client
-		register_result(result);
+		add_result(result);
 
 		// Create request
 		if (openuri(PRESTOCLIENT_HTTP_REQUEST_TYPE_POST,
@@ -1044,12 +1147,10 @@ PRESTOCLIENT_RESULT *prestoclient_query(PRESTOCLIENT *prestoclient, const char *
 PRESTOCLIENT_RESULT *prestoclient_prepare(PRESTOCLIENT *prestoclient, const char *in_sql_statement, const char *in_schema)
 {
 	PRESTOCLIENT_RESULT *result = NULL;
-	char *uasource, *defschema, *query_url;
+	char *defschema;
 	unsigned long buffersize;
 
-	uasource = PRESTOCLIENT_SOURCE;
 	defschema = PRESTOCLIENT_DEFAULT_SCHEMA;
-	query_url = PRESTOCLIENT_QUERY_URL;
 	buffersize = PRESTOCLIENT_CURL_BUFFERSIZE;
 
 	size_t sql_len = strlen(in_sql_statement);
@@ -1060,13 +1161,8 @@ PRESTOCLIENT_RESULT *prestoclient_prepare(PRESTOCLIENT *prestoclient, const char
 		result = new_prestoresult();
 
 		result->client = prestoclient;
-
 		result->describe_callback_function = NULL;
-
-		/*
-		result->write_callback_function = in_write_callback_function;
-		result->client_object = in_client_object;
-		*/
+		result->write_callback_function = NULL;
 
 		result->hcurl = curl_easy_init();
 
@@ -1076,10 +1172,10 @@ PRESTOCLIENT_RESULT *prestoclient_prepare(PRESTOCLIENT *prestoclient, const char
 			return 0;
 		}
 
-		// Add resultset to the client
-		register_result(result);
+		// Add resultset to the client 
+		add_result(result);
 		char *prep_name = (char *)malloc(sizeof(long));
-		sprintf(prep_name, "qry%i", result->client->active_results);
+		sprintf(prep_name, "qry%li", result->client->active_results);
 
 		char *prepqry = (char *)malloc(sql_len + 40);
 		sprintf(prepqry, "PREPARE %s FROM %s", prep_name, in_sql_statement);
@@ -1113,13 +1209,13 @@ PRESTOCLIENT_RESULT *prestoclient_prepare(PRESTOCLIENT *prestoclient, const char
 		}
 		else
 		{
+			remove_result(result);
+			delete_prestoresult(result);
+			result = NULL;
 		}
-
 		free(prepqry);
 	}
-
 	return result;
-	//return 1;
 }
 
 PRESTOCLIENT_RESULT *prestoclient_execute(PRESTOCLIENT *prestoclient, PRESTOCLIENT_RESULT *prepared_result,
@@ -1128,47 +1224,27 @@ PRESTOCLIENT_RESULT *prestoclient_execute(PRESTOCLIENT *prestoclient, PRESTOCLIE
 										  void *in_client_object)
 {
 	// PRESTOCLIENT_RESULT* result;
-	char *uasource, *defschema, *query_url;
+	char *defschema;
 	unsigned long buffersize;
 
-	uasource = PRESTOCLIENT_SOURCE;
 	defschema = PRESTOCLIENT_DEFAULT_SCHEMA;
-	query_url = PRESTOCLIENT_QUERY_URL;
 	buffersize = PRESTOCLIENT_CURL_BUFFERSIZE;
 
 	if (prestoclient && prepared_result && prepared_result->prepared_stmt_name && strlen(prepared_result->prepared_stmt_name) > 0)
 	{
+		// handle was used before so reset and reuse
 		reset_prestoresult(prepared_result);
 
-		// Prepare the result set
-		// result = new_prestoresult();
-
-		//prepared_result->client = prestoclient;
-		prepared_result->write_callback_function = in_write_callback_function;
+		if (in_write_callback_function){
+			prepared_result->write_callback_function = in_write_callback_function; 
+		} else {
+			prepared_result->write_callback_function = &write_callback_buffer; 
+		}
 		prepared_result->describe_callback_function = in_describe_callback_function;
 		prepared_result->client_object = in_client_object;
 
-		/*
-		result->hcurl = curl_easy_init();
-		if (!result->hcurl)
-		{
-			delete_prestoresult(result);
-			return NULL;
-		}
-
-		// Reserve memory for curl data buffer
-		result->lastresponse = (char*)malloc(buffersize + 1);	//  * sizeof(char) ?
-		if (!result->lastresponse)
-			exit(1);
-		memset(result->lastresponse, 0, buffersize);			//  * sizeof(char) ?
-		result->lastresponsebuffersize = buffersize;
-		*/
-
-		// we recycle so no registering again...Add resultset to the client
-		// register_result(prepared_result);
-
 		char *in_sql_statement = (char *)malloc(strlen(prepared_result->prepared_stmt_name) + 15);
-		sprintf(in_sql_statement, "EXECUTE %s ", prepared_result->prepared_stmt_name); //[ USING parameter1 [ , parameter2, ... ] ]
+		sprintf(in_sql_statement, "EXECUTE %s ", prepared_result->prepared_stmt_name);
 
 		// Create request
 		if (openuri(PRESTOCLIENT_HTTP_REQUEST_TYPE_POST,
@@ -1187,10 +1263,28 @@ PRESTOCLIENT_RESULT *prestoclient_execute(PRESTOCLIENT *prestoclient, PRESTOCLIE
 		{
 			// Start polling server for data
 			prestoclient_waituntilfinished(prepared_result);
+		} else {
+			remove_result(prepared_result);
+			delete_prestoresult(prepared_result);
+			prepared_result = NULL;
 		}
 		free(in_sql_statement);
+	} else {
+		remove_result(prepared_result);
+		delete_prestoresult(prepared_result);
+		prepared_result = NULL;
 	}
 	return prepared_result;
+}
+
+
+void prestoclient_deleteresult(PRESTOCLIENT *prestoclient, PRESTOCLIENT_RESULT *prepared_result)
+{
+	if (prestoclient && prepared_result)
+	{
+		delete_prestoresult(prepared_result);
+		prepared_result = NULL;
+	}
 }
 
 unsigned int prestoclient_getstatus(PRESTOCLIENT_RESULT *result)
@@ -1255,7 +1349,33 @@ const char *prestoclient_getcolumntypedescription(PRESTOCLIENT_RESULT *result, c
 	if (columnindex >= result->columncount)
 		return NULL;
 
-	return PRESTO_TYPENAMES[result->columns[columnindex]->type];	
+
+	// Please maintain typenames in lockstep to the enum above
+	switch (result->columns[columnindex]->type) {
+	case PRESTOCLIENT_TYPE_UNDEFINED: return "PRESTO_TYPE_UNDEFINED";
+	case PRESTOCLIENT_TYPE_VARCHAR: return "PRESTO_TYPE_VARCHAR";
+	case PRESTOCLIENT_TYPE_CHAR: return "PRESTO_TYPE_CHAR";
+	case PRESTOCLIENT_TYPE_VARBINARY: return "PRESTO_TYPE_VARBINARY";
+	case PRESTOCLIENT_TYPE_TINYINT: return "PRESTO_TYPE_TINYINT";
+	case PRESTOCLIENT_TYPE_SMALLINT: return "PRESTO_TYPE_SMALLINT";
+	case PRESTOCLIENT_TYPE_INTEGER: return "PRESTO_TYPE_INTEGER";
+	case PRESTOCLIENT_TYPE_BIGINT: return "PRESTO_TYPE_BIGINT";
+	case PRESTOCLIENT_TYPE_BOOLEAN: return "PRESTO_TYPE_BOOLEAN";
+	case PRESTOCLIENT_TYPE_REAL: return "PRESTO_TYPE_REAL";
+	case PRESTOCLIENT_TYPE_DOUBLE: return "PRESTO_TYPE_DOUBLE";
+	case PRESTOCLIENT_TYPE_DECIMAL: return "PRESTO_TYPE_DECIMAL";
+	case PRESTOCLIENT_TYPE_DATE: return "PRESTO_TYPE_DATE";
+	case PRESTOCLIENT_TYPE_TIME: return "PRESTO_TYPE_TIME";
+	case PRESTOCLIENT_TYPE_TIME_WITH_TIME_ZONE: return "PRESTO_TYPE_TIME_WITH_TIME_ZONE";
+	case PRESTOCLIENT_TYPE_TIMESTAMP: return "PRESTO_TYPE_TIMESTAMP";
+	case PRESTOCLIENT_TYPE_TIMESTAMP_WITH_TIME_ZONE: return "PRESTO_TYPE_TIMESTAMP_WITH_TIME_ZONE";
+	case PRESTOCLIENT_TYPE_INTERVAL_YEAR_TO_MONTH: return "PRESTO_TYPE_INTERVAL_YEAR_TO_MONTH";
+	case PRESTOCLIENT_TYPE_INTERVAL_DAY_TO_SECOND: return "PRESTO_TYPE_INTERVAL_DAY_TO_SECOND";
+	case PRESTOCLIENT_TYPE_ARRAY: return "PRESTO_TYPE_ARRAY";
+	case PRESTOCLIENT_TYPE_MAP: return "PRESTO_TYPE_MAP";
+	case PRESTOCLIENT_TYPE_JSON: return "PRESTO_TYPE_JSON";
+	default: return "PRESTO_TYPE_UNDEFINED";
+	}	
 }
 
 char *prestoclient_getcolumndata(PRESTOCLIENT_RESULT *result, const size_t columnindex)

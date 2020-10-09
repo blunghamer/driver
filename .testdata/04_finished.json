@@ -1,0 +1,228 @@
+{
+    "id": "20201009_175909_00109_25947",
+    "infoUri": "http://localhost:8080/ui/query.html?20201009_175909_00109_25947",
+    "columns": [
+        {
+            "name": "query_id",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        },
+        {
+            "name": "state",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        },
+        {
+            "name": "user",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        },
+        {
+            "name": "source",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        },
+        {
+            "name": "query",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        },
+        {
+            "name": "resource_group_id",
+            "type": "array(varchar)",
+            "typeSignature": {
+                "rawType": "array",
+                "arguments": [
+                    {
+                        "kind": "TYPE",
+                        "value": {
+                            "rawType": "varchar",
+                            "arguments": [
+                                {
+                                    "kind": "LONG",
+                                    "value": 2147483647
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "queued_time_ms",
+            "type": "bigint",
+            "typeSignature": {
+                "rawType": "bigint",
+                "arguments": []
+            }
+        },
+        {
+            "name": "analysis_time_ms",
+            "type": "bigint",
+            "typeSignature": {
+                "rawType": "bigint",
+                "arguments": []
+            }
+        },
+        {
+            "name": "planning_time_ms",
+            "type": "bigint",
+            "typeSignature": {
+                "rawType": "bigint",
+                "arguments": []
+            }
+        },
+        {
+            "name": "created",
+            "type": "timestamp",
+            "typeSignature": {
+                "rawType": "timestamp",
+                "arguments": []
+            }
+        },
+        {
+            "name": "started",
+            "type": "timestamp",
+            "typeSignature": {
+                "rawType": "timestamp",
+                "arguments": []
+            }
+        },
+        {
+            "name": "last_heartbeat",
+            "type": "timestamp",
+            "typeSignature": {
+                "rawType": "timestamp",
+                "arguments": []
+            }
+        },
+        {
+            "name": "end",
+            "type": "timestamp",
+            "typeSignature": {
+                "rawType": "timestamp",
+                "arguments": []
+            }
+        },
+        {
+            "name": "error_type",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        },
+        {
+            "name": "error_code",
+            "type": "varchar",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 2147483647
+                    }
+                ]
+            }
+        }
+    ],
+    "stats": {
+        "state": "FINISHED",
+        "queued": false,
+        "scheduled": true,
+        "nodes": 1,
+        "totalSplits": 17,
+        "queuedSplits": 0,
+        "runningSplits": 0,
+        "completedSplits": 17,
+        "cpuTimeMillis": 7,
+        "wallTimeMillis": 9,
+        "queuedTimeMillis": 0,
+        "elapsedTimeMillis": 58,
+        "processedRows": 102,
+        "processedBytes": 15445,
+        "physicalInputBytes": 15445,
+        "peakMemoryBytes": 0,
+        "spilledBytes": 0,
+        "rootStage": {
+            "stageId": "0",
+            "state": "FINISHED",
+            "done": true,
+            "nodes": 1,
+            "totalSplits": 16,
+            "queuedSplits": 0,
+            "runningSplits": 0,
+            "completedSplits": 16,
+            "cpuTimeMillis": 2,
+            "wallTimeMillis": 3,
+            "processedRows": 102,
+            "processedBytes": 19030,
+            "physicalInputBytes": 0,
+            "subStages": [
+                {
+                    "stageId": "1",
+                    "state": "FINISHED",
+                    "done": true,
+                    "nodes": 1,
+                    "totalSplits": 1,
+                    "queuedSplits": 0,
+                    "runningSplits": 0,
+                    "completedSplits": 1,
+                    "cpuTimeMillis": 5,
+                    "wallTimeMillis": 6,
+                    "processedRows": 102,
+                    "processedBytes": 15445,
+                    "physicalInputBytes": 15445,
+                    "subStages": []
+                }
+            ]
+        },
+        "progressPercentage": 100.0
+    },
+    "warnings": []
+}

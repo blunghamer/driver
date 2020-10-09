@@ -1,6 +1,8 @@
 {
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "files.associations": {
-        "chrono": "c"
+        "chrono": "c",
+        "cstring": "c",
+        "functional": "c"
     }
 }

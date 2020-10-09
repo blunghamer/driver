@@ -9,10 +9,11 @@
 #include <stdarg.h>
 
 #include "../prestoclient/prestoclient.h"
+#include "../prestoclient/prestoclienttypes.h"
 #include "wcutils.h"
+#include "str2odbc.h"
 
 #define USE_DLOPEN_FOR_GPPS
-
 
 struct dbc;
 struct stmt;
@@ -171,22 +172,22 @@ typedef struct stmt {
     SQLCHAR *query;		/**< Current query, raw string */
     int *ov3;			/**< True for SQL_OV_ODBC3 */
     int *oemcp;			/**< True for Win32 OEM CP translation */
-    int *jdconv;		/**< True for julian day conversion */
+    // int *jdconv;		/**< True for julian day conversion */
     int isselect;		/**< > 0 if query is a SELECT statement */
-    int ncols;			/**< Number of result columns */
+    size_t ncols;			/**< Number of result columns */
     COL *cols;			/**< Result column array */
     COL *dyncols;		/**< Column array, but malloc()ed */
-    int dcols;			/**< Number of entries in dyncols */
+    size_t dcols;			/**< Number of entries in dyncols */
     int bkmrk;			/**< True when bookmarks used */
     SQLINTEGER *bkmrkptr;	/**< SQL_ATTR_FETCH_BOOKMARK_PTR */
     BINDCOL bkmrkcol;		/**< Bookmark bound column */
     BINDCOL *bindcols;		/**< Array of bound columns */
-    int nbindcols;		/**< Number of entries in bindcols */
-    int nbindparms;		/**< Number bound parameters */
+    size_t nbindcols;		/**< Number of entries in bindcols */
+    size_t nbindparms;		/**< Number bound parameters */
     BINDPARM *bindparms;	/**< Array of bound parameters */
-    int nparams;		/**< Number of parameters in query */
-    int pdcount;		/**< SQLParamData() counter */
-    int nrows;			/**< Number of result rows */
+    size_t nparams;		/**< Number of parameters in query */
+    size_t pdcount;		/**< SQLParamData() counter */
+    size_t nrows;			/**< Number of result rows */
     int rowp;			/**< Current result row */
     int rowprs;			/**< Current start row of rowset */
     char **rows;		/**< 2-dim array, result set */

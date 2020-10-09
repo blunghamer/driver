@@ -19,15 +19,11 @@
 */
 
 #include "../prestoclient/prestoclient.h"
+#include "../prestoclient/prestoclienttypes.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#ifndef bool
-#define bool signed char
-#define true 1
-#define false 0
-#endif
+#include <stdbool.h>
 
 /*
  * Define a struct to hold the data for a client session. A pointer
@@ -38,7 +34,7 @@ typedef struct ST_QUERYDATA
 {
 	bool hdr_printed;
 	char *cache;
-	unsigned int cache_size;
+	size_t cache_size;
 } QUERYDATA;
 
 void querydata_delete(QUERYDATA* qdata) {
@@ -154,71 +150,82 @@ static void write_callback_function(void *in_querydata, void *in_result)
 	qdata->cache[0] = 0;
 }
 
+
 /*
  * Min function for a simple commandline application.
  */
 int main(int argc, char **argv)
 {
-	/*
-	 * Read commandline parameters
-	 */
+	int rc = 0;
+
 	if (argc < 4)
 	{
 		printf("Usage: cprestoclient <servername> <catalog> <sql-statement>\n");
-		printf("Example:\ncprestoclient localhost \"select * from sample_07\"\n");
+		printf("Example:\ncprestoclient localhost \"select * from system.queries\"\n");
 		exit(1);
 	}
+	
+	/* from here we do have to cleanup results */
+	QUERYDATA *qdata = querydata_new();	
 
-	
-	QUERYDATA *qdata = querydata_new();
-	bool status = false;
-	
 	/*
 	 * Initialize prestoclient. We're using default values for everything but the servername
 	 */
-	PRESTOCLIENT *pc = prestoclient_init("http", argv[1], NULL , argv[2], NULL, NULL, NULL, NULL);
+	PRESTOCLIENT *pc = prestoclient_init("http", argv[1], NULL , argv[2], NULL, NULL, NULL, NULL, 1);
 	if (!pc)
 	{
 		printf("Could not initialize prestoclient\n");
-		return 1;
+		rc = 1;
+		goto exit;		
 	}
 
 	char * info = prestoclient_serverinfo(pc);
 	if (!info) {
-		printf("unable to connect to server, no info available");
-		return 2;
+		printf("unable to connect to server, no server info queryable\n");
+		rc = 2;
+		goto exit;
 	}
 	printf("Serverinfo: %s\n", info);
 	free(info);
 
-	/* from here we do have to cleanup results */
-
-	PRESTOCLIENT_RESULT *result = prestoclient_prepare(pc, argv[3], NULL);
+	
+	PRESTOCLIENT_RESULT* result = prestoclient_query(pc, "show catalogs", NULL, &write_callback_function, &describe_callback_function, (void *)qdata);
+	if (!result)
+	{
+		printf("Could not start query '%s' on server '%s'\n", argv[2], argv[1]);
+		rc = 5;
+		goto exit;
+	}
+	prestoclient_deleteresult(pc, result);
+	
+	result = prestoclient_prepare(pc, argv[3], NULL);	
 	if (!result)
 	{
 		printf("Could not prepare query '%s' on server '%s'\n", argv[2], argv[1]);		
+		rc = 3;
 		goto exit;
 	}
-
-	result = prestoclient_execute(pc, result,&write_callback_function, &describe_callback_function, (void *)qdata);
+	
+	result = prestoclient_execute(pc, result, NULL , &describe_callback_function, (void *)qdata);
 	if (!result)
 	{
 		printf("Could not execute prepared query '%s' on server '%s'\n", argv[2], argv[1]);
+		rc = 4;
 		goto exit;
 	}
-
-	//return 4;
+	prestoclient_deleteresult(pc, result);
 
 	result = prestoclient_query(pc, argv[3], NULL, &write_callback_function, &describe_callback_function, (void *)qdata);
 	if (!result)
 	{
 		printf("Could not start query '%s' on server '%s'\n", argv[2], argv[1]);
+		rc = 5;
 		goto exit;
 	}
 	else
 	{
 		// Query succeeded ?
-		status = prestoclient_getstatus(result) == PRESTOCLIENT_STATUS_SUCCEEDED;
+		bool status = prestoclient_getstatus(result) == PRESTOCLIENT_STATUS_SUCCEEDED;
 
 		// Messages from presto server
 		if (prestoclient_getlastservererror(result))
@@ -239,6 +246,7 @@ int main(int argc, char **argv)
 			printf("%s\n", prestoclient_getlastcurlerror(result));
 		}
 	}
+	prestoclient_deleteresult(pc, result);
 
 	/*
 	* Cleanup
@@ -247,5 +255,5 @@ exit:
 	prestoclient_close(pc);
 	querydata_delete(qdata);
 	
-	return (status ? 0 : 1);
+	return rc;
 }
