@@ -11,7 +11,7 @@ if (MSVC)
 else()
     # lots of warnings and all warnings as errors -pedantic
     #add_compile_options(-Wall -Wextra  -Werror -fPIC)
-    add_compile_options(-fPIC)
+    add_compile_options(-g -Wall -fPIC)
 endif()
 
 add_subdirectory(prestoclient)

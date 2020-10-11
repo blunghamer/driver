@@ -24,6 +24,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <check.h>
+
+PRESTOCLIENT *pc = NULL;
+
 
 /*
  * Define a struct to hold the data for a client session. A pointer
@@ -151,14 +155,144 @@ static void write_callback_function(void *in_querydata, void *in_result)
 }
 
 
+void setup(void)
+{
+    pc = prestoclient_init("http", "localhost", NULL , NULL , NULL , NULL, NULL, NULL, NULL, 1);
+	if (!pc)
+	{
+		printf("Could not initialize prestoclient\n");
+		return;
+	} 
+
+	printf("Setup done\n");
+}
+
+void teardown(void)
+{
+    prestoclient_close(pc);
+}
+
+
+
+START_TEST (test_can_serverinfo)
+{	
+	char * info = NULL;
+	info = prestoclient_serverinfo(pc);
+	if (!info) {
+		printf("unable to connect to server, no server info queryable\n");
+		goto exit;
+	}
+	ck_assert_ptr_nonnull(info);
+exit:
+	if (info)
+		free(info);
+}
+END_TEST
+
+
+/*
+	"select * from system.jdbc.types"
+	"show catalogs"
+*/
+START_TEST (test_can_query)
+{
+	int prc;
+	PRESTOCLIENT_RESULT* result;	
+	char *qry = "use system.runtime";
+	prc = prestoclient_query(pc, &result, qry, NULL, NULL, NULL);
+	if (prc != PRESTO_OK)
+	{
+		printf("Could not start query '%s'\n", qry);	
+		goto exit;
+	}	
+	ck_assert_int_eq(PRESTO_OK, prc);
+	ck_assert_str_eq("system", pc->catalog);
+	ck_assert_str_eq("runtime", pc->schema);
+exit:
+	if (result)
+		prestoclient_deleteresult(pc, result);		
+}
+END_TEST
+
+
+START_TEST (test_can_prepare)
+{
+	int prc;
+	PRESTOCLIENT_RESULT* result;	
+	char *qry = "select * from system.runtime.queries";
+	prc = prestoclient_prepare(pc, &result, qry);
+	if (prc != PRESTO_OK)
+	{
+		printf("Could not start query '%s'\n", qry);	
+		goto exit;
+	}	
+
+	ck_assert_ptr_nonnull(result->columns);
+	ck_assert_int_eq(result->columncount, 15);
+
+	prc = prestoclient_execute(pc, result, NULL , NULL, NULL );
+	if (prc != PRESTO_OK)
+	{
+		printf("Could not execute prepared query '%s'\n", qry);		
+		goto exit;
+	}
+	
+	ck_assert_int_eq(PRESTO_OK, prc);
+	ck_assert_ptr_nonnull(result->tablebuff);
+	ck_assert_ptr_nonnull(result->tablebuff->rowbuff);
+	
+exit:
+	if (result)
+		prestoclient_deleteresult(pc, result);		
+}
+END_TEST
+
+Suite * prestoclient_suite(void)
+{
+    Suite *s;
+    TCase *tc_core;
+
+    s = suite_create("prestoclient");
+
+    /* Core test case */
+    tc_core = tcase_create("Core");
+
+	tcase_add_checked_fixture(tc_core, setup, teardown);
+    tcase_add_test(tc_core, test_can_serverinfo);
+	tcase_add_test(tc_core, test_can_query);
+	tcase_add_test(tc_core, test_can_prepare);
+    suite_add_tcase(s, tc_core);
+
+    return s;
+}
+
+
+int main(void)
+{
+	int number_failed;
+	Suite *s;
+	SRunner *sr;
+
+	s = prestoclient_suite();
+	sr = srunner_create(s);
+
+	srunner_run_all(sr, CK_NORMAL);
+	number_failed = srunner_ntests_failed(sr);
+	srunner_free(sr);
+	return (number_failed == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
 /*
  * Min function for a simple commandline application.
  */
-int main(int argc, char **argv)
+int main0(int argc, char** argv)
 {
-	int rc = 0;
+	int prc = 0;
+	int rc = 0;	
+	PRESTOCLIENT* pc = NULL;
+	PRESTOCLIENT_RESULT* result = NULL;
 
-	if (argc < 4)
+	if (argc < 3)
 	{
 		printf("Usage: cprestoclient <servername> <catalog> <sql-statement>\n");
 		printf("Example:\ncprestoclient localhost \"select * from system.queries\"\n");
@@ -171,52 +305,16 @@ int main(int argc, char **argv)
 	/*
 	 * Initialize prestoclient. We're using default values for everything but the servername
 	 */
-	PRESTOCLIENT *pc = prestoclient_init("http", argv[1], NULL , argv[2], NULL, NULL, NULL, NULL, 1);
+	pc = prestoclient_init("http", argv[1], NULL , NULL , NULL , NULL, NULL, NULL, NULL, 1);
 	if (!pc)
 	{
 		printf("Could not initialize prestoclient\n");
 		rc = 1;
 		goto exit;		
 	}
-
-	char * info = prestoclient_serverinfo(pc);
-	if (!info) {
-		printf("unable to connect to server, no server info queryable\n");
-		rc = 2;
-		goto exit;
-	}
-	printf("Serverinfo: %s\n", info);
-	free(info);
-
 	
-	PRESTOCLIENT_RESULT* result = prestoclient_query(pc, "show catalogs", NULL, &write_callback_function, &describe_callback_function, (void *)qdata);
-	if (!result)
-	{
-		printf("Could not start query '%s' on server '%s'\n", argv[2], argv[1]);
-		rc = 5;
-		goto exit;
-	}
-	prestoclient_deleteresult(pc, result);
-	
-	result = prestoclient_prepare(pc, argv[3], NULL);	
-	if (!result)
-	{
-		printf("Could not prepare query '%s' on server '%s'\n", argv[2], argv[1]);		
-		rc = 3;
-		goto exit;
-	}
-	
-	result = prestoclient_execute(pc, result, NULL , &describe_callback_function, (void *)qdata);
-	if (!result)
-	{
-		printf("Could not execute prepared query '%s' on server '%s'\n", argv[2], argv[1]);
-		rc = 4;
-		goto exit;
-	}
-	prestoclient_deleteresult(pc, result);
-
-	result = prestoclient_query(pc, argv[3], NULL, &write_callback_function, &describe_callback_function, (void *)qdata);
-	if (!result)
+	prc = prestoclient_query(pc, &result, argv[2], &write_callback_function, &describe_callback_function, (void *)qdata);
+	if (prc != PRESTO_OK)
 	{
 		printf("Could not start query '%s' on server '%s'\n", argv[2], argv[1]);
 		rc = 5;
@@ -254,6 +352,5 @@ int main(int argc, char **argv)
 exit:
 	prestoclient_close(pc);
 	querydata_delete(qdata);
-	
 	return rc;
 }

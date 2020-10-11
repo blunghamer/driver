@@ -306,6 +306,8 @@ drvgpps(DBC *d, char *sect, char *ent, char *def, char *buf,
 static void unbindcols(STMT *s);
 static SQLRETURN mkbindcols(STMT *s, size_t ncols);
 
+
+
 /**
  * Free memory given pointer to memory pointer.
  * @param x pointer to pointer to memory to be free'd
@@ -436,6 +438,26 @@ noconn(STMT *s)
 }
 
 /**
+ * Report IM001 (not implemented) SQL error code for HSTMT.
+ * @param stmt statement handle
+ * @result ODBC error code
+ */
+
+static SQLRETURN
+drvunimplstmt(HSTMT stmt)
+{
+	STMT *s;
+
+	if (stmt == SQL_NULL_HSTMT)
+	{
+		return SQL_INVALID_HANDLE;
+	}
+	s = (STMT *)stmt;
+	setstat(s, -1, "not supported", "IM001");
+	return SQL_ERROR;
+}
+
+/**
  * Trace function for SQLite API calls
  * @param d pointer to database connection handle
  * @param fn SQLite function name
@@ -512,13 +534,11 @@ presto_stmt_drop(STMT *s)
     if (s->presto_stmt)
     {
         DBC *d = (DBC *)s->dbc;
-
         if (d)
         {
             dbtraceapi(d, "sqlite3_finalize", 0);
-        }
-
-        prestoclient_cancelquery(s->presto_stmt);
+        }        
+        prestoclient_deleteresult(s->presto_stmt->client, s->presto_stmt);
         s->presto_stmt = NULL;
         s->presto_stmt_rownum = 0;
     }
@@ -1065,7 +1085,8 @@ dbopen(DBC *d, char *name, char *dsn, char *sflag, char *ntflag, char *busy)
         prestoclient_close(d->presto_client);
         d->presto_client = NULL;
     }
-    d->presto_client = prestoclient_init("http", "localhost", NULL, NULL, NULL, NULL, NULL, NULL, true);
+    unsigned int prt = 8080;
+    d->presto_client = prestoclient_init("http", "localhost", &prt, NULL, NULL, NULL, NULL, NULL, NULL, true);
     if (!d->presto_client)
     {
         rc = PRESTO_ERROR;
@@ -1808,121 +1829,6 @@ fixupsql(char *sql, int sqlLen, int cte, size_t *nparam, int *isselect,
     return out;
 }
 
-/**
- * Internal query preparation used by SQLPrepare() and SQLExecDirect().
- * @param stmt statement handle
- * @param query query string
- * @param queryLen length of query string or SQL_NTS
- * @result ODBC error code
- */
-static SQLRETURN
-drvprepareO(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER queryLen)
-{
-    STMT *s;
-    DBC *d;
-    char *errp = NULL;
-    SQLRETURN sret;
-
-    if (stmt == SQL_NULL_HSTMT)
-    {
-        return SQL_INVALID_HANDLE;
-    }
-    s = (STMT *)stmt;
-    if (s->dbc == SQL_NULL_HDBC)
-    {
-    noconn:
-        return noconn(s);
-    }
-    d = (DBC *)s->dbc;
-    if (!d->presto_client)
-    {
-        goto noconn;
-    }
-    s3stmt_end(s);
-    presto_stmt_drop(s);
-    //sret = starttran(s);
-    //if (sret != SQL_SUCCESS)
-    //{
-    //    return sret;
-    //}
-
-    /*
-    freep(&s->query);
-    s->query = (SQLCHAR *)fixupsql((char *)query, queryLen,
-                                   (d->version >= 0x030805),
-                                   &s->nparams, &s->isselect, &errp);
-    if (!s->query)
-    {
-        if (errp)
-        {
-            setstat(s, -1, "%s", (*s->ov3) ? (char *)"HY000" : (char *)"S1000", errp);
-            return SQL_ERROR;
-        }
-        return nomem(s);
-    }
-    errp = NULL;
-    freeresult(s, -1);
-    if (s->isselect == 1)
-    {
-        int ret, ncols, nretry = 0;
-        const char *rest;
-        sqlite3_stmt *s3stmt = NULL;
-
-#if defined(HAVE_SQLITE3PREPAREV2) && (HAVE_SQLITE3PREPAREV2)
-        dbtraceapi(d, "sqlite3_prepare_v2", (char *)s->query);
-#else
-        dbtraceapi(d, "sqlite3_prepare", (char *)s->query);
-#endif
-        do
-        {
-            s3stmt = NULL;
-#if defined(HAVE_SQLITE3PREPAREV2) && (HAVE_SQLITE3PREPAREV2)
-            ret = sqlite3_prepare_v2(d->sqlite, (char *)s->query, -1,
-                                     &s3stmt, &rest);
-#else
-            ret = sqlite3_prepare(d->sqlite, (char *)s->query, -1,
-                                  &s3stmt, &rest);
-#endif
-            if (ret != PRESTO_OK)
-            {
-                if (s3stmt)
-                {
-                    sqlite3_finalize(s3stmt);
-                    s3stmt = NULL;
-                }
-            }
-        } while (ret == SQLITE_SCHEMA && (++nretry) < 2);
-        dbtracerc(d, ret, NULL);
-        if (ret != PRESTO_OK)
-        {
-            if (s3stmt)
-            {
-                dbtraceapi(d, "sqlite3_finalize", 0);
-                sqlite3_finalize(s3stmt);
-            }
-            setstat(s, ret, "%s (%d)", (*s->ov3) ? (char *)"HY000" : (char *)"S1000",
-                    sqlite3_errmsg(d->sqlite), ret);
-            return SQL_ERROR;
-        }
-        if (sqlite3_bind_parameter_count(s3stmt) != s->nparams)
-        {
-            dbtraceapi(d, "sqlite3_finalize", 0);
-            sqlite3_finalize(s3stmt);
-            setstat(s, SQLITE_ERROR, "parameter marker count incorrect",
-                    (*s->ov3) ? (char *)"HY000" : (char *)"S1000");
-            return SQL_ERROR;
-        }
-        ncols = sqlite3_column_count(s3stmt);
-        s->guessed_types = 0;
-        setupdyncols(s, s3stmt, &ncols);
-        s->ncols = ncols;
-        s->presto_stmt = s3stmt;
-    }
-    */
-    mkbindcols(s, s->ncols);
-    s->paramset_count = 0;
-    return SQL_SUCCESS;
-}
 
 /**
  * Internal query preparation used by SQLPrepare() and SQLExecDirect().
@@ -1979,7 +1885,8 @@ drvprepare(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER queryLen)
         const char *rest;
 
         dbtraceapi(d, "prestoclient_prepare", (char *)s->query);
-        PRESTOCLIENT_RESULT *presto_stmt = prestoclient_prepare(d->presto_client, (char *)s->query, NULL);
+        PRESTOCLIENT_RESULT *presto_stmt; 
+        int rc = prestoclient_prepare(d->presto_client, &presto_stmt, (char *)s->query);
         if (!presto_stmt)
         {
             ret = PRESTO_ERROR;
@@ -2307,360 +2214,6 @@ mkbindcols(STMT *s, size_t ncols)
         s->nbindcols = ncols;
         unbindcols(s);
     }
-    return SQL_SUCCESS;
-}
-
-/**
- * Internal query execution used by SQLExecute() and SQLExecDirect().
- * @param stmt statement handle
- * @param initial false when called from SQLPutData()
- * @result ODBC error code
- */
-
-static SQLRETURN
-drvexecuteO(SQLHSTMT stmt, int initial)
-{
-    SQLRETURN ret;
-    STMT *s;
-    DBC *d;
-    char *errp = NULL;
-    int rc, i, ncols = 0, nrows = 0, busy_count;
-
-    if (stmt == SQL_NULL_HSTMT)
-    {
-        return SQL_INVALID_HANDLE;
-    }
-    s = (STMT *)stmt;
-    if (s->dbc == SQL_NULL_HDBC)
-    {
-    noconn:
-        return noconn(s);
-    }
-    d = (DBC *)s->dbc;
-    if (!d->presto_client)
-    {
-        goto noconn;
-    }
-    if (!s->query)
-    {
-        setstat(s, -1, "no query prepared", (*s->ov3) ? (char *)"HY000" : (char *)"S1000");
-        return SQL_ERROR;
-    }
-    /*
-    if (s->nbindparms < s->nparams)
-    {
-    unbound:
-        setstat(s, -1, "unbound parameters in query",
-                (*s->ov3) ? (char *)"HY000" : (char *)"S1000");
-        return SQL_ERROR;
-    }
-    for (i = 0; i < s->nparams; i++)
-    {
-        BINDPARM *p = &s->bindparms[i];
-
-        if (!p->bound)
-        {
-            goto unbound;
-        }
-        if (initial)
-        {
-            SQLLEN *lenp = p->lenp;
-
-            if (lenp && *lenp < 0 && *lenp > SQL_LEN_DATA_AT_EXEC_OFFSET &&
-                *lenp != SQL_NTS && *lenp != SQL_NULL_DATA &&
-                *lenp != SQL_DATA_AT_EXEC)
-            {
-                setstat(s, -1, "invalid length reference", "HY009");
-                return SQL_ERROR;
-            }
-            if (lenp && (*lenp <= SQL_LEN_DATA_AT_EXEC_OFFSET ||
-                         *lenp == SQL_DATA_AT_EXEC))
-            {
-                p->need = 1;
-                p->offs = 0;
-                p->len = 0;
-            }
-        }
-    }
-    //ret = starttran(s);
-    //if (ret != SQL_SUCCESS)
-    //{
-    //    goto cleanup;
-    //}
-    busy_count = 0;
-again:
-    s3stmt_end(s);
-    if (initial)
-    {
-        // fixup data-at-execution parameters and alloc'ed blobs
-        s->pdcount = -1;
-        for (i = 0; i < s->nparams; i++)
-        {
-            BINDPARM *p = &s->bindparms[i];
-
-            if (p->param == p->parbuf)
-            {
-                p->param = NULL;
-            }
-            freep(&p->parbuf);
-            if (p->need <= 0 &&
-                p->lenp && (*p->lenp <= SQL_LEN_DATA_AT_EXEC_OFFSET || *p->lenp == SQL_DATA_AT_EXEC))
-            {
-                p->need = 1;
-                p->offs = 0;
-                p->len = 0;
-            }
-        }
-    }
-    if (s->nparams)
-    {
-        for (i = 0; i < s->nparams; i++)
-        {
-            ret = setupparam(s, (char *)s->query, i);
-            if (ret != SQL_SUCCESS)
-            {
-                goto cleanup;
-            }
-        }
-    }
-    freeresult(s, 0);
-    if (s->isselect == 1 && !d->intrans &&
-        s->curtype == SQL_CURSOR_FORWARD_ONLY &&
-        d->step_enable && s->nparams == 0 && d->cur_s3stmt == NULL)
-    {
-        s->nrows = -1;
-        ret = s3stmt_start(s);
-        if (ret == SQL_SUCCESS)
-        {
-            goto done2;
-        }
-    }
-    rc = drvgettable(s, s->presto_stmt ? NULL : (char *)s->query, &s->rows,
-                     &s->nrows, &ncols, &errp, s->nparams, s->bindparms);
-    dbtracerc(d, rc, errp);
-    if (rc == PRESTO_BUSY)
-    {
-        if (busy_handler((void *)d, ++busy_count))
-        {
-            if (errp)
-            {
-                sqlite3_free(errp);
-                errp = NULL;
-            }
-            for (i = 0; i < s->nparams; i++)
-            {
-                BINDPARM *p = &s->bindparms[i];
-
-                if (p->param == p->parbuf)
-                {
-                    p->param = NULL;
-                }
-                freep(&p->parbuf);
-                if (!p->lenp || (*p->lenp > SQL_LEN_DATA_AT_EXEC_OFFSET &&
-                                 *p->lenp != SQL_DATA_AT_EXEC))
-                {
-                    p->param = p->param0;
-                }
-                p->lenp = p->lenp0;
-            }
-            s->nrows = 0;
-            goto again;
-        }
-    }
-    if (rc != PRESTO_OK)
-    {
-        setstat(s, rc, "%s (%d)", (*s->ov3) ? (char *)"HY000" : (char *)"S1000",
-                errp ? errp : "unknown error", rc);
-        if (errp)
-        {
-            sqlite3_free(errp);
-            errp = NULL;
-        }
-        ret = SQL_ERROR;
-        goto cleanup;
-    }
-    if (errp)
-    {
-        sqlite3_free(errp);
-        errp = NULL;
-    }
-    s->rowfree = freerows;
-    if (s->isselect <= 0 || s->isselect > 1)
-    {
-        //
-        // INSERT/UPDATE/DELETE or DDL results are immediately released.
-        //
-        freeresult(s, -1);
-        nrows += sqlite3_changes(d->presto_client);
-        s->nrows = nrows;
-        goto done;
-    }
-    if (s->ncols != ncols)
-    {
-        //
-        // Weird result.
-        //
-        setstat(s, -1, "broken result set %d/%d",
-                (*s->ov3) ? (char *)"HY000" : (char *)"S1000", s->ncols, ncols);
-        ret = SQL_ERROR;
-        goto cleanup;
-    }
-done:
-    mkbindcols(s, s->ncols);
-done2:
-    ret = SQL_SUCCESS;
-    s->rowp = s->rowprs = -1;
-    s->paramset_count++;
-    s->paramset_nrows = s->nrows;
-    if (s->paramset_count < s->paramset_size)
-    {
-        for (i = 0; i < s->nparams; i++)
-        {
-            BINDPARM *p = &s->bindparms[i];
-
-            if (p->param == p->parbuf)
-            {
-                p->param = NULL;
-            }
-            freep(&p->parbuf);
-            if (p->lenp0 &&
-                s->parm_bind_type != SQL_PARAM_BIND_BY_COLUMN)
-            {
-                p->lenp = (SQLLEN *)((char *)p->lenp0 +
-                                     s->paramset_count * s->parm_bind_type);
-            }
-            else if (p->lenp0 && p->inc > 0)
-            {
-                p->lenp = p->lenp0 + s->paramset_count;
-            }
-            if (!p->lenp || (*p->lenp > SQL_LEN_DATA_AT_EXEC_OFFSET &&
-                             *p->lenp != SQL_DATA_AT_EXEC))
-            {
-                if (p->param0 &&
-                    s->parm_bind_type != SQL_PARAM_BIND_BY_COLUMN)
-                {
-                    p->param = (char *)p->param0 +
-                               s->paramset_count * s->parm_bind_type;
-                }
-                else if (p->param0 && p->inc > 0)
-                {
-                    p->param = (char *)p->param0 +
-                               s->paramset_count * p->inc;
-                }
-            }
-            else if (p->lenp && (*p->lenp <= SQL_LEN_DATA_AT_EXEC_OFFSET ||
-                                 *p->lenp == SQL_DATA_AT_EXEC))
-            {
-                p->need = 1;
-                p->offs = 0;
-                p->len = 0;
-            }
-        }
-        goto again;
-    }
-cleanup:
-    if (ret != SQL_NEED_DATA)
-    {
-        for (i = 0; i < s->nparams; i++)
-        {
-            BINDPARM *p = &s->bindparms[i];
-
-            if (p->param == p->parbuf)
-            {
-                p->param = NULL;
-            }
-            freep(&p->parbuf);
-            if (!p->lenp || (*p->lenp > SQL_LEN_DATA_AT_EXEC_OFFSET &&
-                             *p->lenp != SQL_DATA_AT_EXEC))
-            {
-                p->param = p->param0;
-            }
-            p->lenp = p->lenp0;
-        }
-        s->nrows = s->paramset_nrows;
-        if (s->parm_proc)
-        {
-            *s->parm_proc = s->paramset_count;
-        }
-        s->paramset_count = 0;
-        s->paramset_nrows = 0;
-    }
-    //
-    // For INSERT/UPDATE/DELETE statements change the return code
-    // to SQL_NO_DATA if the number of rows affected was 0.
-    //
-    if (*s->ov3 && s->isselect == 0 &&
-        ret == SQL_SUCCESS && nrows == 0)
-    {
-        ret = SQL_NO_DATA;
-    }
-    */
-    return ret;
-}
-
-/**
- * Start sqlite statement for execution of SELECT statement.
- * @param s statement pointer
- * @result ODBC error code
- */
-
-static SQLRETURN
-s3stmt_start(STMT *s)
-{
-    DBC *d = (DBC *)s->dbc;
-    /*
-    const char *endp;
-    sqlite3_stmt *s3stmt = NULL;
-    int rc, nretry = 0;
-
-    d->s3stmt_needmeta = 0;
-    if (!s->s3stmt) {
-#if defined(HAVE_SQLITE3PREPAREV2) && (HAVE_SQLITE3PREPAREV2)
-	dbtraceapi(d, "sqlite3_prepare_v2", (char *) s->query);
-#else
-	dbtraceapi(d, "sqlite3_prepare", (char *) s->query);
-#endif
-	do {
-	    s3stmt = NULL;
-#if defined(HAVE_SQLITE3PREPAREV2) && (HAVE_SQLITE3PREPAREV2)
-	    rc = sqlite3_prepare_v2(d->sqlite, (char *) s->query, -1,
-				    &s3stmt, &endp);
-#else
-	    rc = sqlite3_prepare(d->sqlite, (char *) s->query, -1,
-				 &s3stmt, &endp);
-#endif
-	    if (rc != PRESTO_OK) {
-		if (s3stmt) {
-		    sqlite3_finalize(s3stmt);
-		    s3stmt = NULL;
-		}
-	    }
-	} while (rc == PRESTO_SCHEMA && (++nretry) < 2);
-	dbtracerc(d, rc, NULL);
-	if (rc != SQLITE_OK) {
-	    if (s3stmt) {
-		dbtraceapi(d, "sqlite3_finalize", NULL);
-		sqlite3_finalize(s3stmt);
-	    }
-	    setstat(s, rc, "%s (%d)", (*s->ov3) ? "HY000" : "S1000",
-		    sqlite3_errmsg(d->sqlite), rc);
-	    return SQL_ERROR;
-	}
-	if (sqlite3_bind_parameter_count(s3stmt) != s->nparams) {
-	    dbtraceapi(d, "sqlite3_finalize", 0);
-	    sqlite3_finalize(s3stmt);
-	    setstat(s, PRESTO_ERROR, "parameter marker count incorrect",
-		    (*s->ov3) ? (char*)"HY000" : (char*)"S1000");
-	    return SQL_ERROR;
-	}
-	s->s3stmt = s3stmt;
-	s->s3stmt_noreset = 1;
-	d->s3stmt_needmeta = 1;
-    }
-    d->cur_s3stmt = s;
-    s->s3stmt_rownum = -1;
-    s3bind(d, s->s3stmt, s->nparams, s->bindparms);
-    */
     return SQL_SUCCESS;
 }
 
@@ -3055,7 +2608,7 @@ drvcolattribute(SQLHSTMT stmt, SQLUSMALLINT col, SQLUSMALLINT id,
                 SQLPOINTER val2)
 {
     STMT *s;
-    PRESTOCLIENT_FIELD *c;
+    PRESTOCLIENT_COLUMN *c;
     int v = 0;
     char *valc = (char *)val;
     SQLSMALLINT dummy;
@@ -3101,7 +2654,8 @@ drvcolattribute(SQLHSTMT stmt, SQLUSMALLINT col, SQLUSMALLINT id,
         break;
     case SQL_COLUMN_LENGTH:
     case SQL_DESC_LENGTH:
-        v = strlen(c->name);
+        // v = strlen(c->name);
+        v = c->bytesize;
         break;
     case SQL_COLUMN_LABEL:
         // if (c->label)
@@ -3318,7 +2872,8 @@ drvcolattribute(SQLHSTMT stmt, SQLUSMALLINT col, SQLUSMALLINT id,
         v = SQL_TRUE;
         break;
     case SQL_COLUMN_DISPLAY_SIZE:
-        v = strlen(c->name) + 1;
+        //v = strlen(c->name) + 1;
+        v = c->bytesize + 1;
         break;
     case SQL_COLUMN_UNSIGNED:
         v = SQL_FALSE;
@@ -3637,8 +3192,7 @@ drvfetchscroll(SQLHSTMT stmt, SQLSMALLINT orient, SQLINTEGER offset)
         ret = SQL_ERROR;
         i = 0;
         goto done2;
-    }
-    bool could_fetch = false;
+    }    
     ret = SQL_SUCCESS;
     
     // if (((DBC *)(s->dbc))->cur_s3stmt == s && s->presto_stmt)
@@ -3679,8 +3233,7 @@ drvfetchscroll(SQLHSTMT stmt, SQLSMALLINT orient, SQLINTEGER offset)
         {
         case SQL_FETCH_NEXT:
             if ((s->presto_stmt->tablebuff->rowidx + 1) < s->presto_stmt->tablebuff->nrow ) {
-                s->presto_stmt->tablebuff->rowidx += 1;
-                could_fetch = true;                 
+                s->presto_stmt->tablebuff->rowidx += 1;                
             } else {
                 ret = SQL_NO_DATA;
             }
@@ -3924,7 +3477,7 @@ SQLBulkOperations(SQLHSTMT stmt, SQLSMALLINT oper)
     SQLRETURN ret;
 
     HSTMT_LOCK(stmt);
-    ret = drvbulkoperations(stmt, oper);
+    ret = drvunimplstmt(stmt);
     HSTMT_UNLOCK(stmt);
     return ret;
 }
@@ -5025,7 +4578,8 @@ getrowdata(STMT *s, SQLUSMALLINT col, SQLSMALLINT otype,
 	}
 #endif
     // calc the array offset of the column
-	data = s->presto_stmt->tablebuff->rowbuff[ (s->presto_stmt->tablebuff->ncol* s->presto_stmt->tablebuff->rowidx + col) ];
+	data = (char*)s->presto_stmt->tablebuff->rowbuff[ (s->presto_stmt->tablebuff->ncol* s->presto_stmt->tablebuff->rowidx + col) ];
+    // printf("\nparams %s %i %i %i %i %i\n", data, type, col, otype, len, *lenp);
 	if (!val)
 	{
 		valnull = 1;
@@ -5379,6 +4933,10 @@ getrowdata(STMT *s, SQLUSMALLINT col, SQLSMALLINT otype,
 			int doz, zlen = len - 1;
 			int dlen = strlen(data);
 			int offs = 0;
+            strcpy(val, data + offs);
+            *lenp = dlen + 1;
+            break;
+
 #ifdef WCHARSUPPORT
 			SQLWCHAR *ucdata = NULL;
 			SQLCHAR *cdata = (SQLCHAR *)*data;
@@ -5611,7 +5169,7 @@ done:
 	if (ilenp)
 	{
 		*ilenp = *lenp;
-	}
+	}    
 	return sret;
 }
 
@@ -5653,7 +5211,8 @@ SQLGetData(SQLHSTMT stmt, SQLUSMALLINT col, SQLSMALLINT type,
 		goto done;
 	}
 	--col;
-	ret = getrowdata(s, col, type, val, len, lenp, 1);
+	ret = getrowdata(s, col, type, val, len, lenp, 1);    
+    // printf("return %s %i %i %i %i\n", val, type, col, len, *lenp);
 done:
 	HSTMT_UNLOCK(stmt);
 	return ret;

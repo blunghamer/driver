@@ -1,27 +1,4 @@
-/*
-* This file is part of cPrestoClient
-*
-* Copyright (C) 2014 Ivo Herweijer
-*
-* cPrestoClient is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*
-* You can contact me via email: info@easydatawarehousing.com
-*/
-
-#include "prestoclient.h"
-#include "prestoclienttypes.h"
-#include <assert.h>
+#include "jsonparser.h"
 
 static JSONPARSER* json_new_parser()
 {
@@ -173,6 +150,128 @@ static bool json_in_array(JSONLEXER* lexer)
 	return false;
 }
 
+static void json_addtotag(JSONPARSER* json)
+{
+	if (!json)
+		return;
+
+	if (json->tagbufferactualsize + json->clength >= json->tagbuffersize)
+	{
+		json->tagbuffersize += 1024;
+		json->tagbuffer = (char*)realloc( (char*)json->tagbuffer, json->tagbuffersize);
+		if (!json->tagbuffer)
+			exit(1);
+	}
+
+	strncat(json->tagbuffer, &json->c[0], json->clength);
+	json->tagbufferactualsize += json->clength;
+}
+
+static void json_copytag(char **target, unsigned int *targetsize, unsigned int *targetactualsize, char **tag, unsigned int *tagactualsize, const char *usevalue)
+{
+	if (usevalue)
+	{
+		if (*targetsize < strlen(usevalue) )
+		{
+			*target = (char*)realloc( (char*)*target, strlen(usevalue) * sizeof(char) + 1 );
+			*targetsize = strlen(usevalue) * sizeof(char);
+		}
+	}
+	else if (*targetsize < *tagactualsize)
+	{
+		*target = (char*)realloc( (char*)*target, *tagactualsize * sizeof(char) + 1 );
+		*targetsize = *tagactualsize * sizeof(char);
+	}
+
+	if (! *target )
+		exit(1);
+
+	if (usevalue)
+	{
+		strcpy(*target, usevalue);
+		*targetactualsize = strlen(usevalue);
+	}
+	else
+	{
+		strcpy(*target, *tag);
+		*targetactualsize = *tagactualsize;
+	}
+
+	(*tag)[0] = 0;
+	*tagactualsize = 0;
+}
+
+
+
+void json_delete_parser(JSONPARSER* json)
+{
+	if (!json)
+		return;
+
+	if (json->tagbuffer)
+		free(json->tagbuffer);
+
+	free(json);
+}
+
+void json_delete_lexer(JSONLEXER* lexer)
+{
+	unsigned int i;
+
+	if (!lexer)
+		return;
+
+	if (lexer->tagorder)
+		free(lexer->tagorder);
+
+	for (i = 0; i < lexer->tagordersize; i++)
+	{
+		if (lexer->tagordername[i])
+			free(lexer->tagordername[i]);
+	}
+
+	if (lexer->tagordername)
+        free(lexer->tagordername);
+
+	if (lexer->name)
+		free(lexer->name);
+
+	if (lexer->value)
+		free(lexer->value);
+
+	free(lexer);
+}
+
+void json_reset_lexer(JSONLEXER* lexer)
+{
+	unsigned int i;
+
+	if (!lexer)
+		return;
+
+	lexer->previoustag			= JSON_TT_UNKNOWN;
+
+	lexer->tagorderactualsize	= 0;
+
+	lexer->column				= 0;
+	lexer->error				= false;
+
+	lexer->name[0]				= 0;
+	lexer->nameactualsize		= 0;
+
+	lexer->value[0]				= 0;
+	lexer->valueactualsize		= 0;
+
+	for (i = 0; i < lexer->tagordersize; i++)
+	{
+		lexer->tagorder[i] = JSON_TT_UNKNOWN;
+		lexer->tagordername[i][0] = 0;
+	}
+}
+
+
+// Stream processing into prestoclient result
+
 static bool json_getnextchar(PRESTOCLIENT_RESULT* result)
 {
 	if (!result)
@@ -235,57 +334,6 @@ static bool json_getnextchar(PRESTOCLIENT_RESULT* result)
 	}
 
 	return true;
-}
-
-static void json_addtotag(JSONPARSER* json)
-{
-	if (!json)
-		return;
-
-	if (json->tagbufferactualsize + json->clength >= json->tagbuffersize)
-	{
-		json->tagbuffersize += 1024;
-		json->tagbuffer = (char*)realloc( (char*)json->tagbuffer, json->tagbuffersize);
-		if (!json->tagbuffer)
-			exit(1);
-	}
-
-	strncat(json->tagbuffer, &json->c[0], json->clength);
-	json->tagbufferactualsize += json->clength;
-}
-
-static void json_copytag(char **target, unsigned int *targetsize, unsigned int *targetactualsize, char **tag, unsigned int *tagactualsize, const char *usevalue)
-{
-	if (usevalue)
-	{
-		if (*targetsize < strlen(usevalue) )
-		{
-			*target = (char*)realloc( (char*)*target, strlen(usevalue) * sizeof(char) + 1 );
-			*targetsize = strlen(usevalue) * sizeof(char);
-		}
-	}
-	else if (*targetsize < *tagactualsize)
-	{
-		*target = (char*)realloc( (char*)*target, *tagactualsize * sizeof(char) + 1 );
-		*targetsize = *tagactualsize * sizeof(char);
-	}
-
-	if (! *target )
-		exit(1);
-
-	if (usevalue)
-	{
-		strcpy(*target, usevalue);
-		*targetactualsize = strlen(usevalue);
-	}
-	else
-	{
-		strcpy(*target, *tag);
-		*targetactualsize = *tagactualsize;
-	}
-
-	(*tag)[0] = 0;
-	*tagactualsize = 0;
 }
 
 // Parser/tokenizer
@@ -566,71 +614,6 @@ bool json_reader(PRESTOCLIENT_RESULT* result)
 	return (!result->json->error && !result->lexer->error);
 }
 
-void json_delete_parser(JSONPARSER* json)
-{
-	if (!json)
-		return;
-
-	if (json->tagbuffer)
-		free(json->tagbuffer);
-
-	free(json);
-}
-
-void json_delete_lexer(JSONLEXER* lexer)
-{
-	unsigned int i;
-
-	if (!lexer)
-		return;
-
-	if (lexer->tagorder)
-		free(lexer->tagorder);
-
-	for (i = 0; i < lexer->tagordersize; i++)
-	{
-		if (lexer->tagordername[i])
-			free(lexer->tagordername[i]);
-	}
-
-	if (lexer->tagordername)
-        free(lexer->tagordername);
-
-	if (lexer->name)
-		free(lexer->name);
-
-	if (lexer->value)
-		free(lexer->value);
-
-	free(lexer);
-}
-
-void json_reset_lexer(JSONLEXER* lexer)
-{
-	unsigned int i;
-
-	if (!lexer)
-		return;
-
-	lexer->previoustag			= JSON_TT_UNKNOWN;
-
-	lexer->tagorderactualsize	= 0;
-
-	lexer->column				= 0;
-	lexer->error				= false;
-
-	lexer->name[0]				= 0;
-	lexer->nameactualsize		= 0;
-
-	lexer->value[0]				= 0;
-	lexer->valueactualsize		= 0;
-
-	for (i = 0; i < lexer->tagordersize; i++)
-	{
-		lexer->tagorder[i] = JSON_TT_UNKNOWN;
-		lexer->tagordername[i][0] = 0;
-	}
-}
 
 // This function is specific to presto json, not generic json parsing
 static void json_set_column_value(PRESTOCLIENT_RESULT *result) {
@@ -654,228 +637,4 @@ static void json_set_column_value(PRESTOCLIENT_RESULT *result) {
 
 		strncpy(result->columns[result->currentdatacolumn]->data, result->lexer->value, result->lexer->valueactualsize + 1);	// +1 to copy null terminator
 	}
-}
-
-// This function is specific to prestoclient, not generic json
-static void json_extract_variables(PRESTOCLIENT_RESULT *result)
-{
-
-	// Extract data
-	if (result->lexer->tagorderactualsize > 2 &&
-		strcmp(result->lexer->tagordername[result->lexer->tagorderactualsize - 2], "data") == 0)
-	{
-		// Print headers
-		if (!result->columninfoavailable && result->columncount > 0)
-		{
-			// If there is a data element, column info must be complete
-			result->columninfoavailable = true;
-
-			// Call print header callback function
-			if (!result->columninfoprinted)
-			{
-				result->columninfoprinted = true;
-
-				if (result->describe_callback_function)
-					result->describe_callback_function(result->client_object, (void*)result);
-			}
-		}
-
-		assert(result->columninfoavailable);
-
-		// Determine column
-		result->currentdatacolumn++;
-
-		assert(result->currentdatacolumn < (int)result->columncount);
-
-		json_set_column_value(result);
-		
-		// Last column reached ?
-		if (result->currentdatacolumn >= (int)result->columncount - 1)
-		{
-			result->currentdatacolumn = -1;
-
-			// Call rowdata callback function
-			result->dataavailable = true;
-			if (result->write_callback_function)
-				result->write_callback_function(result->client_object, (void*)result);
-		}
-	}
-	else if (result->lexer->tagorderactualsize > 3 &&
-		strcmp(result->lexer->tagordername[result->lexer->tagorderactualsize - 3], "data") == 0)
-	{ 
-		// if we are in the data one level below (e.g. in array or json doc) and first value we increase the data counter
-		if (result->lexer->previoustag == JSON_TT_ARRAY_OPEN || result->lexer->previoustag == JSON_TT_OBJECT_OPEN) {
-			result->currentdatacolumn++;
-		}
-		// this will overwrite with the last value encountered which is certainly not what we wanted...
-		// we have to find out how to stop parsing arrays, json and row further down
-		// now we should append this value to array or object ....
-		json_set_column_value(result);		
-	}
-	//  Get URI's and state
-	else if (result->lexer->tagorderactualsize == 1 &&
-			 strcmp(result->lexer->name, "infoUri") == 0 )
-	{
-		alloc_copy(&result->lastinfouri, result->lexer->value);
-	}
-	else if (result->lexer->tagorderactualsize == 1 &&
-			 strcmp(result->lexer->name, "nextUri") == 0 )
-	{
-		alloc_copy(&result->lastnexturi, result->lexer->value);
-	}
-	else if (result->lexer->tagorderactualsize == 1 &&
-			 strcmp(result->lexer->name, "partialCancelUri") == 0 )
-	{
-		alloc_copy(&result->lastcanceluri, result->lexer->value);
-	}
-	else if (result->lexer->tagorderactualsize > 1 &&
-			 strcmp(result->lexer->tagordername[result->lexer->tagorderactualsize - 1], "stats") == 0 &&
-			 strcmp(result->lexer->name, "state") == 0 )
-	{
-		alloc_copy(&result->laststate, result->lexer->value);
-	}
-	// Get error message
-	else if (result->lexer->tagorderactualsize > 2 &&
-			 strcmp(result->lexer->tagordername[result->lexer->tagorderactualsize - 2], "error") == 0 &&
-			 strcmp(result->lexer->tagordername[result->lexer->tagorderactualsize - 1], "failureInfo") == 0 &&
-			 strcmp(result->lexer->name, "type") == 0 )
-	{
-		alloc_add(&result->lasterrormessage, result->lexer->value);
-	}
-	else if (result->lexer->tagorderactualsize > 2 &&
-			 strcmp(result->lexer->tagordername[result->lexer->tagorderactualsize - 2], "error") == 0 &&
-			 strcmp(result->lexer->tagordername[result->lexer->tagorderactualsize - 1], "failureInfo") == 0 &&
-			 strcmp(result->lexer->name, "message") == 0 )
-	{
-		alloc_add(&result->lasterrormessage, result->lexer->value);
-	}
-	// Extract column info
-	else if (!result->columninfoavailable &&
-			 result->lexer->tagorderactualsize > 2 &&
-			 strcmp(result->lexer->tagordername[result->lexer->tagorderactualsize - 2], "columns") == 0 )
-	{
-		if (strcmp(result->lexer->name, "name") == 0 )
-		{
-			// Found a new column
-			result->columncount++;
-
-			// Reserve memory for column info
-			if (result->columncount == 1)
-				result->columns = (PRESTOCLIENT_COLUMN**)calloc(result->columncount, sizeof(PRESTOCLIENT_COLUMN*) );
-			else
-				result->columns = (PRESTOCLIENT_COLUMN**)realloc((PRESTOCLIENT_COLUMN**)result->columns, result->columncount * sizeof(PRESTOCLIENT_COLUMN*) );
-
-			if (!result->columns)
-				exit(1);
-
-			result->columns[result->columncount - 1] = new_prestocolumn();
-
-			// Store columnname
-			alloc_copy(&result->columns[result->columncount - 1]->name, result->lexer->value);
-		}				
-	}	
-	// extract column types via rawTypes, the type identifyers appear naked (e.g. without lengt, precision etc. here)
-	else if (
-			 !result->columninfoavailable &&
-			 result->lexer->tagorderactualsize > 2 &&
-			 result->columncount > 0 && 
-			 strcmp(result->lexer->tagordername[result->lexer->tagorderactualsize - 3], "columns") == 0 &&			 
-			 strcmp(result->lexer->name, "rawType") == 0 )
-	{	
-		// it is a bit hairy how the tagordername array is populated
-		/*
-		printf("Found NODE, name: %s value: %s, tagorder: %s %i \n",result->lexer->name,result->lexer->value, result->lexer->tagordername[result->lexer->tagorderactualsize-3], result->columncount);
-		for (size_t idx = 0 ; idx < result->lexer->tagorderactualsize - 1; idx++ ) {
-			printf("Idx: %i Item: %s \n", idx, result->lexer->tagordername[idx]);
-		}
-		*/
-		if      (strcmp(result->lexer->value, "tinyint") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_TINYINT;
-			result->columns[result->columncount - 1]->bytesize = 1;
-		} else if (strcmp(result->lexer->value, "smallint") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_SMALLINT;
-			result->columns[result->columncount - 1]->bytesize = 2;
-		} else if (strcmp(result->lexer->value, "integer") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_INTEGER;
-			result->columns[result->columncount - 1]->bytesize = 4;
-		} else if (strcmp(result->lexer->value, "bigint") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_BIGINT;
-			result->columns[result->columncount - 1]->bytesize = 8;
-		} else if (strcmp(result->lexer->value, "boolean") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_BOOLEAN;
-			result->columns[result->columncount - 1]->bytesize = 1;
-		} else if (strcmp(result->lexer->value, "real") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_REAL;
-			result->columns[result->columncount - 1]->bytesize = 4;
-		} else if (strcmp(result->lexer->value, "double") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_DOUBLE;
-			result->columns[result->columncount - 1]->bytesize = 8;
-		} else if (strcmp(result->lexer->value, "date") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_DATE;
-			result->columns[result->columncount - 1]->bytesize = 23;
-		} else if (strcmp(result->lexer->value, "time") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_TIME;
-			result->columns[result->columncount - 1]->bytesize = 23;
-		} else if (strcmp(result->lexer->value, "time with time zone") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_TIME_WITH_TIME_ZONE;
-			result->columns[result->columncount - 1]->bytesize = 30;
-		} else if (strcmp(result->lexer->value, "timestamp") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_TIMESTAMP;
-			result->columns[result->columncount - 1]->bytesize = 23;
-		} else if (strcmp(result->lexer->value, "timestamp with time zone") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_TIMESTAMP_WITH_TIME_ZONE;
-			result->columns[result->columncount - 1]->bytesize = 30;
-		} else if (strcmp(result->lexer->value, "interval year to month") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_INTERVAL_YEAR_TO_MONTH;
-			result->columns[result->columncount - 1]->bytesize = 20;
-		} else if (strcmp(result->lexer->value, "interval day to second") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_INTERVAL_DAY_TO_SECOND;
-			result->columns[result->columncount - 1]->bytesize = 20;
-		} else if (strcmp(result->lexer->value, "varchar") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_VARCHAR;
-			// will get it from the arguments in json
-		} else if (strcmp(result->lexer->value, "array") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_ARRAY;
-			result->columns[result->columncount - 1]->bytesize = 100;
-			// result->columns[result->columncount - 1]->bytesize = 2147483647;			
-		} else if (strcmp(result->lexer->value, "map") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_MAP;
-			result->columns[result->columncount - 1]->bytesize = 100;
-		} else if (strcmp(result->lexer->value, "json") == 0) {
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_JSON;
-			result->columns[result->columncount - 1]->bytesize = 100;
-		}  else
-		{
-			// so we have a type we cannot work with, bail out? or set to VARCHAR
-			// exiting 
-			printf("unable to work with type%s\n", result->lexer->value);
-			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_VARCHAR;			
-			// we are lacking those...
-			// IPADDRESS
-			// UUID
-			// HyperLogLog
-			// P4HyperLogLog
-			// QDigest
-		}
-	} 
-	else if ( !result->columninfoavailable &&
-	 		  result->lexer->tagorderactualsize > 3 && 
-			  strcmp(result->lexer->tagordername[result->lexer->tagorderactualsize-3], "typeSignature") == 0 ) 
-	{
-		if (strcmp(result->lexer->name, "kind") == 0 ) {			
-			// should we check if this is a long, but we would have to store this tag on the columns buffer
-			// printf("Found NODE, name: %s value: %s \n",result->lexer->name,result->lexer->value);
-		} else if ( strcmp(result->lexer->name, "value") == 0 ) {
-			char * wherestopped;
-			result->columns[result->columncount - 1]->bytesize = strtol(result->lexer->value, &wherestopped , 0);			
-			// printf("Found NODE, name: %s value: %s\n",result->lexer->name,result->lexer->value);
-			if (result->columns[result->columncount - 1]->bytesize == 2147483647) {
-				result->columns[result->columncount - 1]->bytesize = 100;
-			} 
-		}
-	}
-	
-	// Cleanup
-	result->lexer->name[0] = 0;
-	result->lexer->value[0] = 0;
 }

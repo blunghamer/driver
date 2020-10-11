@@ -1,0 +1,124 @@
+{
+    "id": "20201011_144309_00208_xn8dw",
+    "infoUri": "http://localhost:8080/ui/query.html?20201011_144309_00208_xn8dw",
+    "columns": [
+        {
+            "name": "Column Name",
+            "type": "varchar(17)",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 17
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Catalog",
+            "type": "varchar(6)",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 6
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Schema",
+            "type": "varchar(7)",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 7
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Table",
+            "type": "varchar(7)",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 7
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Type",
+            "type": "varchar(14)",
+            "typeSignature": {
+                "rawType": "varchar",
+                "arguments": [
+                    {
+                        "kind": "LONG",
+                        "value": 14
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Type Size",
+            "type": "integer",
+            "typeSignature": {
+                "rawType": "integer",
+                "arguments": []
+            }
+        },
+        {
+            "name": "Aliased",
+            "type": "boolean",
+            "typeSignature": {
+                "rawType": "boolean",
+                "arguments": []
+            }
+        }
+    ],
+    "stats": {
+        "state": "FINISHED",
+        "queued": false,
+        "scheduled": true,
+        "nodes": 1,
+        "totalSplits": 1,
+        "queuedSplits": 0,
+        "runningSplits": 0,
+        "completedSplits": 1,
+        "cpuTimeMillis": 0,
+        "wallTimeMillis": 0,
+        "queuedTimeMillis": 0,
+        "elapsedTimeMillis": 59,
+        "processedRows": 0,
+        "processedBytes": 0,
+        "physicalInputBytes": 0,
+        "peakMemoryBytes": 0,
+        "spilledBytes": 0,
+        "rootStage": {
+            "stageId": "0",
+            "state": "FINISHED",
+            "done": true,
+            "nodes": 1,
+            "totalSplits": 1,
+            "queuedSplits": 0,
+            "runningSplits": 0,
+            "completedSplits": 1,
+            "cpuTimeMillis": 0,
+            "wallTimeMillis": 0,
+            "processedRows": 15,
+            "processedBytes": 0,
+            "physicalInputBytes": 0,
+            "subStages": []
+        },
+        "progressPercentage": 100.0
+    },
+    "warnings": []
+}

@@ -50,6 +50,14 @@ extern "C" {
 #define PRESTOCLIENT_DEFAULT_CATALOG      "system"        //!< Default presto catalog name
 #define PRESTOCLIENT_DEFAULT_SCHEMA       "runtime"       //!< Default presto schema name
 
+enum PRESTO_RESULTCODES
+{
+	PRESTO_OK = 0,		          //!< all went well
+	PRESTO_BAD_REQUEST,			  //!< caller did not provide sufficient parameters
+	PRESTO_NO_MEMORY,			  //!< memory allocation error 
+	PRESTO_BACKEND_ERROR		  //!< presto backend issued an error
+};
+
 /* --- Enums ---------------------------------------------------------------------------------------------------------- */
 /**
  * \brief Fieldtypes returned by prestoclient
@@ -135,6 +143,7 @@ PRESTOCLIENT*           prestoclient_init                       ( const char *pr
 																, const char *in_server
                                                                 , const unsigned int *in_port
                                                                 , const char *in_catalog
+																, const char *in_schema
                                                                 , const char *in_user
                                                                 , const char *in_pwd
 																, const char *in_timezone
@@ -172,9 +181,9 @@ void                    prestoclient_close                      (PRESTOCLIENT *p
  *
  * \return              A handle to the PRESTOCLIENT_RESULT object if successful or NULL if starting the query failed
  */
-PRESTOCLIENT_RESULT*    prestoclient_query                      (PRESTOCLIENT *prestoclient
+int    					prestoclient_query                      (PRESTOCLIENT *prestoclient
+																, PRESTOCLIENT_RESULT** result
                                                                 , const char *in_sql_statement
-                                                                , const char *in_schema
                                                                 , void (*in_write_callback_function)(void*, void*)
                                                                 , void (*in_describe_callback_function)(void*, void*)
                                                                 , void *in_client_object
@@ -183,13 +192,13 @@ PRESTOCLIENT_RESULT*    prestoclient_query                      (PRESTOCLIENT *p
 /**
  * \brief 				prepare query preparation to mimic odbc api
  */
-PRESTOCLIENT_RESULT*    prestoclient_prepare                    (PRESTOCLIENT *prestoclient
-                                                                , const char *in_sql_statement
-                                                                , const char *in_schema                                                                                                                               
+int    					prestoclient_prepare                    (PRESTOCLIENT *prestoclient
+																, PRESTOCLIENT_RESULT** result
+                                                                , const char *in_sql_statement                                                                                                                            
                                                                 );
 
 
-PRESTOCLIENT_RESULT*    prestoclient_execute                    (PRESTOCLIENT *prestoclient
+int					    prestoclient_execute                    (PRESTOCLIENT *prestoclient
                                                                 ,PRESTOCLIENT_RESULT *prepared_result                                                                                                                              
                                                                 , void (*in_write_callback_function)(void*, void*)
 																, void (*in_describe_callback_function)(void*, void*)

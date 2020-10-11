@@ -32,6 +32,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <curl/curl.h>
+#include "jsonparser.h"
 
 /* --- Defines -------------------------------------------------------------------------------------------------------- */
 #define PRESTOCLIENT_QUERY_URL "v1/statement" 				// URL added to servername to start a query
@@ -59,91 +60,25 @@ enum E_HTTP_REQUEST_TYPES
 	PRESTOCLIENT_HTTP_REQUEST_TYPE_DELETE
 };
 
-enum E_JSON_READSTATES
-{
-	JSON_RS_SEARCH_OBJECT = 0
-,	JSON_RS_READ_STRING
-,	JSON_RS_READ_NONSTRING
-};
-
-enum E_JSON_CONTROL_CHARS
-{
-	JSON_CC_NONE = 0
-,	JSON_CC_WS			// Whitespace (space, tab, line feed, form feed, carriage return)
-,	JSON_CC_OO			// Object open {
-,	JSON_CC_OC			// Object close }
-,	JSON_CC_AO			// Array open [
-,	JSON_CC_AC			// Array close ]
-,	JSON_CC_BS			// Backslash
-,	JSON_CC_QT			// Double quote
-,	JSON_CC_COLON		// Colon
-,	JSON_CC_COMMA		// Comma
-};
-
-enum E_JSON_TAGTYPES
-{
-	JSON_TT_UNKNOWN = 0
-,	JSON_TT_STRING
-,	JSON_TT_NUMBER
-,	JSON_TT_OBJECT_OPEN
-,	JSON_TT_OBJECT_CLOSE
-,	JSON_TT_ARRAY_OPEN
-,	JSON_TT_ARRAY_CLOSE
-,	JSON_TT_COLON
-,	JSON_TT_COMMA
-,	JSON_TT_TRUE
-,	JSON_TT_FALSE
-,	JSON_TT_NULL
-};
-
-
-/* --- Structs -------------------------------------------------------------------------------------------------------- */
-typedef struct ST_JSONPARSER
-{
-	enum E_JSON_READSTATES		  state;						//!< State of state-machine
-	bool						  isbackslash;					//!< If true, the previous character was a BS
-	unsigned int				  readposition;					//!< Readposition within curl buffer
-	bool						  skipnextread;					//!< If true don't read the next character, keep the current character
-	bool						  error;						//!< Set to true when a parse error is detected
-	char						 *c;							//!< Current character
-	enum E_JSON_CONTROL_CHARS	  control;						//!< Meaning of current character as control character
-	unsigned int				  clength;						//!< Length of current character (1..4 bytes)
-	char						 *tagbuffer;					//!< Buffer for storing tag that is currently being read
-	unsigned int				  tagbuffersize;				//!< Maximum size of tag buffer
-	unsigned int				  tagbufferactualsize;			//!< Actual size of tag buffer
-	enum E_JSON_TAGTYPES		  tagtype;						//!< Type of value returned by the parser
-} JSONPARSER;
-
-typedef struct ST_JSONLEXER
-{
-	enum E_JSON_TAGTYPES		  previoustag;					//!< json type of the previous tag
-	enum E_JSON_TAGTYPES		 *tagorder;						//!< Array containing types of json parent elements of the current tag
-	char						**tagordername;					//!< Array containing name of json parent elements
-	unsigned int				  tagordersize;					//!< Maximum number of elements for tagorder array
-	unsigned int				  tagorderactualsize;			//!< Actual number of elements used in tagorder array
-	unsigned int				  column;						//!< Column index of current tag
-	bool						  error;						//!< Set to true when a lexer error is detected
-	char						 *name;							//!< Last found name string
-	unsigned int				  namesize;						//!< Maximum length of name
-	unsigned int				  nameactualsize;				//!< Actual length of name
-	char						 *value;						//!< Last found value string
-	unsigned int				  valuesize;					//!< Maximum length of value
-	unsigned int				  valueactualsize;				//!< Actual length of value
-
-} JSONLEXER;
-
-typedef struct ST_PRESTOCLIENT_FIELD
+typedef struct ST_PRESTOCLIENT_COLUMN
 {
 	char						 *name;							//!< Name of column
-	enum E_FIELDTYPES			  type;							//!< Type of field
+	char                         *catalog;   					//!< catalog name or null
+	char						 *schema;						//!< schema name or null
+	char                         *table;						//!< table name or null
+	enum E_FIELDTYPES			  type;							//!< Type of field	
+	size_t                        bytesize;                     //!< max length of the datatype
+	size_t                        precision;                    //!< precision of floars
+	size_t                        scale;                        //!< scale of floats after decimal sign
 	char						 *data;							//!< Buffer for fielddata
-	unsigned int				  datasize;						//!< Size of data buffer
+	size_t				          datasize;						//!< Size of data buffer can be less then 
 	bool						  dataisnull;					//!< Set to true if content of data is null
-} PRESTOCLIENT_FIELD;
+	bool                          alias;						//!< Set to true if is an alias
+} PRESTOCLIENT_COLUMN;
 
 typedef struct ST_PRESTOCLIENT_TABLEBUFFER
 {
-	unsigned char    		    **rowbuff;		//!< result array	
+	char              		    **rowbuff;		//!< result array	
 	size_t 						  nalloc;		//!< alloc'ed size of result array
 	size_t 						  nrow;			//!< number of rows in result array
 	size_t 						  ncol;			//!< number of columns in result array
@@ -174,8 +109,10 @@ typedef struct ST_PRESTOCLIENT_RESULT
 	size_t						  lastresponsebuffersize;		//!< Maximum size of the curl buffer
 	size_t						  lastresponseactualsize;		//!< Actual size of the curl buffer
 	PRESTOCLIENT_TABLEBUFFER     *tablebuff;                    //!< Buffer for result rows of the http fetch (should not be more than 16 MB of json in one go)
-	PRESTOCLIENT_FIELD			**columns;						//!< Buffer for the column information returned by the query	
+	PRESTOCLIENT_COLUMN			**columns;						//!< Buffer for the column information returned by the query	
 	size_t      				  columncount;					//!< Number of columns in output or 0 if unknown	
+	PRESTOCLIENT_COLUMN         **parameters;					//!< Buffer for the parameters returned by the query	
+	size_t                        parametercount;				//!< Number of parameters in output or 0 if unknown
 	bool						  columninfoavailable;			//!< Flag set to true if columninfo is available and complete (also used for json lexer)
 	bool						  columninfoprinted;			//!< Flag set to true if columninfo has been printed to output	
 	int							  currentdatacolumn;			//!< Index to datafield (columns array) currently handled or -1 when not parsing field data
@@ -193,6 +130,7 @@ typedef struct ST_PRESTOCLIENT
 	char						 *protocol;						//!< http or https
 	unsigned int				  port;							//!< TCP port of Presto server
 	char						 *catalog;						//!< Catalog name to be used by Presto server
+	char                         *schema;                       //!< Schema name to be used by Presto server
 	char						 *user;							//!< Username to pass to Presto server
 	char						 *timezone;						//!< Timezone to pass to Presto server
 	char						 *language;						//!< Language to pass to Presto server
@@ -212,13 +150,11 @@ extern void alloc_copy(char **var, const char *newvalue);
 extern void alloc_add(char **var, const char *addedvalue);
 
 // this is ugly and should not be part of the external contract
-extern PRESTOCLIENT_FIELD* new_prestofield();
+extern PRESTOCLIENT_COLUMN* new_prestocolumn();
 extern PRESTOCLIENT_TABLEBUFFER* new_tablebuffer();
 
 // JSON Functions
 extern bool json_reader(PRESTOCLIENT_RESULT* result);
-extern void json_delete_parser(JSONPARSER* json);
-extern void json_delete_lexer(JSONLEXER* lexer);
-extern void json_reset_lexer(JSONLEXER* lexer);
+
 
 #endif // EASYPTORA_PRESTOCLIENTTYPES_HH
