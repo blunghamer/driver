@@ -32,7 +32,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <curl/curl.h>
-#include "jsonparser.h"
+#include "json.h"
 
 /* --- Defines -------------------------------------------------------------------------------------------------------- */
 #define PRESTOCLIENT_QUERY_URL "v1/statement" 				// URL added to servername to start a query
@@ -101,6 +101,7 @@ typedef struct ST_PRESTOCLIENT_RESULT
 	char						 *lastcanceluri;				//!< Uri to cancel query on the Presto server
 	char						 *laststate;					//!< State returned by last request to Presto server
 	char						 *lasterrormessage;				//!< Last error message returned by Presto server
+	char                         *query;						//!< query
 	char                         *prepared_stmt_name;           //!< prepared statement name
 	char                         *prepared_stmt_hdr;            //!< prepared statement header 
 	enum E_CLIENTSTATUS			  clientstatus;					//!< Status defined by PrestoClient: NONE, RUNNING, SUCCEEDED, FAILED

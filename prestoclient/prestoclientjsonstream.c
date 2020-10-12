@@ -523,6 +523,10 @@ static bool json_lexer(PRESTOCLIENT_RESULT* result)
 		}
 	}
 
+	result->lexer->previoustag4 = result->lexer->previoustag3;
+	result->lexer->previoustag3 = result->lexer->previoustag2;
+	result->lexer->previoustag2 = result->lexer->previoustag1;
+	result->lexer->previoustag1 = result->lexer->previoustag;
 	result->lexer->previoustag = result->json->tagtype;
 
 	return (!result->lexer->error);
@@ -613,6 +617,10 @@ void json_reset_lexer(JSONLEXER* lexer)
 		return;
 
 	lexer->previoustag			= JSON_TT_UNKNOWN;
+	lexer->previoustag1 		= JSON_TT_UNKNOWN;
+	lexer->previoustag2 		= JSON_TT_UNKNOWN;	
+	lexer->previoustag3 		= JSON_TT_UNKNOWN;
+	lexer->previoustag4 		= JSON_TT_UNKNOWN;
 
 	lexer->tagorderactualsize	= 0;
 
@@ -642,8 +650,13 @@ static void json_set_column_value(PRESTOCLIENT_RESULT *result) {
 	}
 	else
 	{
-		result->columns[result->currentdatacolumn]->dataisnull = false;
-
+		if (result->currentdatacolumn >= result->columncount) {
+			printf("Out of bounds write detected: %i %i\n", result->currentdatacolumn, result->columncount);
+			return;			
+		} else {
+			result->columns[result->currentdatacolumn]->dataisnull = false;
+		}
+		
 		if (result->lexer->valueactualsize > result->columns[result->currentdatacolumn]->datasize)
 		{
 			result->columns[result->currentdatacolumn]->data = (char*)realloc( (char*)result->columns[result->currentdatacolumn]->data, result->lexer->valueactualsize * sizeof(char) + 1);
@@ -658,7 +671,13 @@ static void json_set_column_value(PRESTOCLIENT_RESULT *result) {
 
 // This function is specific to prestoclient, not generic json
 static void json_extract_variables(PRESTOCLIENT_RESULT *result)
-{
+{	
+	/*
+	printf("Found NODE, name: %s value: %s, %i, %i, ptags: %i, %i, %i, %i, %i\n",result->lexer->name, result->lexer->value, result->lexer->tagorderactualsize, result->currentdatacolumn, result->lexer->previoustag, result->lexer->previoustag1, result->lexer->previoustag2, result->lexer->previoustag3, result->lexer->previoustag4);
+	for (size_t idx = 0 ; idx < result->lexer->tagorderactualsize; idx++ ) {
+		printf("Idx: %li Item: %s, tag: %i\n", idx, result->lexer->tagordername[idx], result->lexer->tagorder[idx]);
+	}
+	*/
 
 	// Extract data
 	if (result->lexer->tagorderactualsize > 2 &&
@@ -704,13 +723,26 @@ static void json_extract_variables(PRESTOCLIENT_RESULT *result)
 		strcmp(result->lexer->tagordername[result->lexer->tagorderactualsize - 3], "data") == 0)
 	{ 
 		// if we are in the data one level below (e.g. in array or json doc) and first value we increase the data counter
-		if (result->lexer->previoustag == JSON_TT_ARRAY_OPEN || result->lexer->previoustag == JSON_TT_OBJECT_OPEN) {
-			result->currentdatacolumn++;
+		if (result->lexer->previoustag == JSON_TT_ARRAY_OPEN || result->lexer->previoustag == JSON_TT_OBJECT_OPEN || result->lexer->previoustag2 == JSON_TT_OBJECT_OPEN) {
+			if (result->currentdatacolumn + 1 >= result->columncount) {				
+			} 
+			result->currentdatacolumn++;			
 		}
-		// this will overwrite with the last value encountered which is certainly not what we wanted...
+		// this will overwrite cell with the last value encountered which is certainly not what we wanted...
 		// we have to find out how to stop parsing arrays, json and row further down
-		// now we should append this value to array or object ....
-		json_set_column_value(result);		
+		// now we should append this value to array or object ....		
+		json_set_column_value(result);	
+
+		// closing has to be done onc the matching end token for the value is reached...
+		if (result->currentdatacolumn >= (int)result->columncount - 1)
+		{
+			result->currentdatacolumn = -1;
+
+			// Call rowdata callback function
+			result->dataavailable = true;
+			if (result->write_callback_function)
+				result->write_callback_function(result->client_object, (void*)result);
+		}
 	}
 	//  Get URI's and state
 	else if (result->lexer->tagorderactualsize == 1 &&
@@ -774,7 +806,7 @@ static void json_extract_variables(PRESTOCLIENT_RESULT *result)
 			alloc_copy(&result->columns[result->columncount - 1]->name, result->lexer->value);
 		}				
 	}	
-	// extract column types via rawTypes, the type identifyers appear naked (e.g. without lengt, precision etc. here)
+	// extract column types via rawTypes, the type identifyers appear naked (e.g. without length, precision etc. here)
 	else if (
 			 !result->columninfoavailable &&
 			 result->lexer->tagorderactualsize > 2 &&
@@ -848,7 +880,7 @@ static void json_extract_variables(PRESTOCLIENT_RESULT *result)
 		{
 			// so we have a type we cannot work with, bail out? or set to VARCHAR
 			// exiting 
-			printf("unable to work with type%s\n", result->lexer->value);
+			printf("unable to work with type %s setting to varchar\n", result->lexer->value);
 			result->columns[result->columncount - 1]->type = PRESTOCLIENT_TYPE_VARCHAR;			
 			// we are lacking those...
 			// IPADDRESS

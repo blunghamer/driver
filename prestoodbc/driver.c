@@ -558,11 +558,6 @@ freedyncols(STMT *s)
         {
             freep(&s->dyncols[i].typname);
         }
-        if (s->cols == s->dyncols)
-        {
-            s->cols = NULL;
-            s->ncols = 0;
-        }
         freep(&s->dyncols);
     }
     s->dcols = 0;
@@ -622,8 +617,8 @@ freeresult(STMT *s, int clrcols)
     if (clrcols)
     {
         freedyncols(s);
-        s->cols = NULL;
-        s->ncols = 0;
+        if (s->presto_stmt)
+            prestoclient_deleteresult(s->presto_stmt->client, s->presto_stmt);        
         s->nowchar[1] = 0;
         s->one_tbl = -1;
         s->has_pk = -1;
@@ -1086,7 +1081,7 @@ dbopen(DBC *d, char *name, char *dsn, char *sflag, char *ntflag, char *busy)
         d->presto_client = NULL;
     }
     unsigned int prt = 8080;
-    d->presto_client = prestoclient_init("http", "localhost", &prt, NULL, NULL, NULL, NULL, NULL, NULL, true);
+    d->presto_client = prestoclient_init("http", "localhost", &prt, NULL, NULL, NULL, NULL, NULL, NULL, false);
     if (!d->presto_client)
     {
         rc = PRESTO_ERROR;
@@ -1173,7 +1168,7 @@ dbopen(DBC *d, char *name, char *dsn, char *sflag, char *ntflag, char *busy)
 }
 
 /**
- * Internal connect to SQLite database.
+ * Internal connect to Presto database.
  * @param dbc database connection handle
  * @param dsn DSN string
  * @param dsnLen length of DSN string or SQL_NTS
@@ -1342,8 +1337,7 @@ drvconnect(SQLHDBC dbc, SQLCHAR *dsn, SQLSMALLINT dsnLen, char *pwd,
     d->shortnames = getbool(snflag);
     d->longnames = getbool(lnflag);
     d->nocreat = getbool(ncflag);
-    d->fksupport = getbool(fkflag);
-    d->jdconv = getbool(jdflag);
+    d->fksupport = getbool(fkflag);    
 #if defined(_WIN32) || defined(_WIN64)
     d->oemcp = getbool(oemcp);
 #else
@@ -1472,366 +1466,9 @@ s3stmt_end(STMT *s)
     }
 }
 
-/**
- * Check if query is a DDL statement.
- * @param sql query string
- * @result true or false
- */
-
-static int
-checkddl(char *sql)
-{
-    int isddl = 0;
-
-    while (*sql && ISSPACE(*sql))
-    {
-        ++sql;
-    }
-    if (*sql && *sql != ';')
-    {
-        int i, size;
-        static const struct
-        {
-            int len;
-            const char *str;
-        } ddlstr[] = {
-            {5, "alter"},
-            {7, "analyze"},
-            {6, "attach"},
-            {5, "begin"},
-            {6, "commit"},
-            {6, "create"},
-            {6, "detach"},
-            {4, "drop"},
-            {3, "end"},
-            {7, "reindex"},
-            {7, "release"},
-            {8, "rollback"},
-            {9, "savepoint"},
-            {6, "vacuum"}};
-
-        size = strlen(sql);
-        for (i = 0; i < array_size(ddlstr); i++)
-        {
-            if (size >= ddlstr[i].len &&
-                strncasecmp(sql, ddlstr[i].str, ddlstr[i].len) == 0)
-            {
-                isddl = 1;
-                break;
-            }
-        }
-    }
-    return isddl;
-}
 
 /**
- * Fixup query string with optional parameter markers.
- * @param sql original query string
- * @param sqlLen length of query string or SQL_NTS
- * @param cte when true, WITH is treated as SELECT
- * @param nparam output number of parameters
- * @param isselect output indicator for SELECT (1) or DDL statement (2)
- * @param errmsg output error message
- * @result newly allocated string containing query string for SQLite or NULL
- */
-
-static char *
-fixupsql(char *sql, int sqlLen, int cte, size_t *nparam, int *isselect,
-         char **errmsg)
-{
-    char *q = sql, *qz = NULL, *p, *inq = NULL, *out;
-    int np = 0, isddl = -1, size;
-
-    if (errmsg)
-    {
-        *errmsg = NULL;
-    }
-    if (sqlLen != SQL_NTS)
-    {
-        qz = q = (char *)xmalloc(sqlLen + 1);
-        if (!qz)
-        {
-            return NULL;
-        }
-        memcpy(q, sql, sqlLen);
-        q[sqlLen] = '\0';
-        size = sqlLen * 4;
-    }
-    else
-    {
-        size = strlen(sql) * 4;
-    }
-    size += sizeof(char *) - 1;
-    size &= ~(sizeof(char *) - 1);
-    p = (char *)xmalloc(size);
-    if (!p)
-    {
-    errout:
-        freep(&qz);
-        return NULL;
-    }
-    memset(p, 0, size);
-    out = p;
-    while (*q)
-    {
-        switch (*q)
-        {
-        case '\'':
-        case '\"':
-            if (q == inq)
-            {
-                inq = NULL;
-            }
-            else if (!inq)
-            {
-                inq = q + 1;
-
-                while (*inq)
-                {
-                    if (*inq == *q)
-                    {
-                        if (inq[1] == *q)
-                        {
-                            inq++;
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-                    inq++;
-                }
-            }
-            *p++ = *q;
-            break;
-        case '?':
-            *p++ = *q;
-            if (!inq)
-            {
-                np++;
-            }
-            break;
-        case ';':
-            if (!inq)
-            {
-                if (isddl < 0)
-                {
-                    isddl = checkddl(out);
-                }
-                if (isddl == 0)
-                {
-                    char *qq = q;
-
-                    do
-                    {
-                        ++qq;
-                    } while (*qq && ISSPACE(*qq));
-                    if (*qq && *qq != ';')
-                    {
-                        freep(&out);
-                        if (errmsg)
-                        {
-                            *errmsg = "only one SQL statement allowed";
-                        }
-                        goto errout;
-                    }
-                }
-            }
-            *p++ = *q;
-            break;
-        case '{':
-            /*
-	     * Deal with escape sequences:
-	     * {d 'YYYY-MM-DD'}, {t ...}, {ts ...}
-	     * {oj ...}, {fn ...} etc.
-	     */
-            if (!inq)
-            {
-                int ojfn = 0, brc = 0;
-                char *inq2 = NULL, *end = q + 1, *start;
-
-                while (*end && ISSPACE(*end))
-                {
-                    ++end;
-                }
-                if (*end != 'd' && *end != 'D' &&
-                    *end != 't' && *end != 'T')
-                {
-                    ojfn = 1;
-                }
-                start = end;
-                while (*end)
-                {
-                    if (inq2 && *end == *inq2)
-                    {
-                        inq2 = NULL;
-                    }
-                    else if (inq2 == NULL && *end == '{')
-                    {
-                        char *nerr = 0, *nsql;
-
-                        nsql = fixupsql(end, SQL_NTS, cte, 0, 0, &nerr);
-                        if (nsql && !nerr)
-                        {
-                            strcpy(end, nsql);
-                        }
-                        else
-                        {
-                            brc++;
-                        }
-                        freep(&nsql);
-                    }
-                    else if (inq2 == NULL && *end == '}')
-                    {
-                        if (brc-- <= 0)
-                        {
-                            break;
-                        }
-                    }
-                    else if (inq2 == NULL && (*end == '\'' || *end == '"'))
-                    {
-                        inq2 = end;
-                    }
-                    else if (inq2 == NULL && *end == '?')
-                    {
-                        np++;
-                    }
-                    ++end;
-                }
-                if (*end == '}')
-                {
-                    char *end2 = end - 1;
-
-                    if (ojfn)
-                    {
-                        while (start < end)
-                        {
-                            if (ISSPACE(*start))
-                            {
-                                break;
-                            }
-                            ++start;
-                        }
-                        while (start < end)
-                        {
-                            *p++ = *start;
-                            ++start;
-                        }
-                        q = end;
-                        break;
-                    }
-                    else
-                    {
-                        while (start < end2 && *start != '\'')
-                        {
-                            ++start;
-                        }
-                        while (end2 > start && *end2 != '\'')
-                        {
-                            --end2;
-                        }
-                        if (*start == '\'' && *end2 == '\'')
-                        {
-                            while (start <= end2)
-                            {
-                                *p++ = *start;
-                                ++start;
-                            }
-                            q = end;
-                            break;
-                        }
-                    }
-                }
-            }
-            /* FALL THROUGH */
-        default:
-            *p++ = *q;
-        }
-        ++q;
-    }
-    freep(&qz);
-    *p = '\0';
-    if (nparam)
-    {
-        *nparam = np;
-    }
-    if (isselect)
-    {
-        if (isddl < 0)
-        {
-            isddl = checkddl(out);
-        }
-        if (isddl > 0)
-        {
-            *isselect = 2;
-        }
-        else
-        {
-            int incom = 0;
-
-            p = out;
-            while (*p)
-            {
-                switch (*p)
-                {
-                case '-':
-                    if (!incom && p[1] == '-')
-                    {
-                        incom = -1;
-                    }
-                    break;
-                case '\n':
-                    if (incom < 0)
-                    {
-                        incom = 0;
-                    }
-                    break;
-                case '/':
-                    if (incom > 0 && p[-1] == '*')
-                    {
-                        incom = 0;
-                        p++;
-                        continue;
-                    }
-                    else if (!incom && p[1] == '*')
-                    {
-                        incom = 1;
-                    }
-                    break;
-                }
-                if (!incom && !ISSPACE(*p))
-                {
-                    break;
-                }
-                p++;
-            }
-            size = strlen(p);
-            if (size >= 6 &&
-                (strncasecmp(p, "select", 6) == 0 ||
-                 strncasecmp(p, "pragma", 6) == 0))
-            {
-                *isselect = 1;
-            }
-            else if (cte && size >= 4 && strncasecmp(p, "with", 4) == 0)
-            {
-                *isselect = 1;
-            }
-            else if (size >= 7 && strncasecmp(p, "explain", 7) == 0)
-            {
-                *isselect = 1;
-            }
-            else
-            {
-                *isselect = 0;
-            }
-        }
-    }
-    return out;
-}
-
-
-/**
- * Internal query preparation used by SQLPrepare() and SQLExecDirect().
+ * Internal query preparation used by SQLPrepare().
  * @param stmt statement handle
  * @param query query string
  * @param queryLen length of query string or SQL_NTS
@@ -1842,8 +1479,10 @@ drvprepare(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER queryLen)
 {
     STMT *s;
     DBC *d;
+    int rc;
     char *errp = NULL;
-    SQLRETURN sret;
+    SQLRETURN sret = SQL_ERROR;
+    PRESTOCLIENT_RESULT *presto_stmt = NULL; 
 
     if (stmt == SQL_NULL_HSTMT)
     {
@@ -1860,10 +1499,12 @@ drvprepare(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER queryLen)
     {
         goto noconn;
     }
+
+    // recycle stmt
     s3stmt_end(s);
     presto_stmt_drop(s);
-
     freep(&s->query);
+
     s->query = (SQLCHAR *)fixupsql((char *)query, queryLen,
                                    (d->version >= 0x030805),
                                    &s->nparams, &s->isselect, &errp);
@@ -1881,31 +1522,41 @@ drvprepare(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER queryLen)
 
     if (s->isselect == 1)
     {
-        int ret, ncols, nretry = 0;
-        const char *rest;
-
         dbtraceapi(d, "prestoclient_prepare", (char *)s->query);
-        PRESTOCLIENT_RESULT *presto_stmt; 
-        int rc = prestoclient_prepare(d->presto_client, &presto_stmt, (char *)s->query);
-        if (!presto_stmt)
-        {
-            ret = PRESTO_ERROR;
+        rc = prestoclient_prepare(d->presto_client, &presto_stmt, (char *)s->query);
+        if (rc != PRESTO_OK)
+        {            
             if (presto_stmt)
             {
                 dbtraceapi(d, "prestoclient_deleteresult", 0);
                 prestoclient_deleteresult(d->presto_client, presto_stmt);
             }
-            setstat(s, ret, "%s (%d)", (*s->ov3) ? (char *)"HY000" : (char *)"S1000", "ERROR preparing query", ret);
-            return ret;
-        }
-        else
-        {
+            setstat(s, rc, "%s (%s)", (*s->ov3) ? (char *)"HY000" : (char *)"S1000", "ERROR preparing query", s->query);
+            sret = SQL_ERROR;            
+        } else {
             s->presto_stmt = presto_stmt;
-            ret = PRESTO_OK;
+            sret = PRESTO_OK;
         }
+    } else {
+        // there are statements presto cannot prepare so we execute direct (dms, special keywords)
+        dbtraceapi(d, "prestoclient_prepare execute direct...", (char *)s->query);
+        rc = prestoclient_query(d->presto_client, &presto_stmt, (char *)s->query, NULL, NULL, NULL);
+        if (rc != PRESTO_OK)
+        {            
+            if (presto_stmt)
+            {
+                dbtraceapi(d, "prestoclient_deleteresult", 0);
+                prestoclient_deleteresult(d->presto_client, presto_stmt);
+            }
+            setstat(s, rc, "%s (%s)", (*s->ov3) ? (char *)"HY000" : (char *)"S1000", "ERROR executing non preparable query", s->query);
+            sret = SQL_ERROR;            
+        } else {
+            s->presto_stmt = presto_stmt;
+            alloc_copy(&(presto_stmt->query), (char*)s->query);
+            sret = PRESTO_OK;
+        }        
     }
-
-    return SQL_SUCCESS;
+    return sret;
 }
 
 /**
@@ -2218,7 +1869,7 @@ mkbindcols(STMT *s, size_t ncols)
 }
 
 /**
- * Internal query execution used by SQLExecute() and SQLExecDirect().
+ * Internal query execution used by SQLExecute().
  * @param stmt statement handle
  * @param initial false when called from SQLPutData()
  * @result ODBC error code
@@ -2236,12 +1887,14 @@ drvexecute(SQLHSTMT stmt, int initial)
 
     if (stmt == SQL_NULL_HSTMT)
     {
+        printf("Invalid handle");
         return SQL_INVALID_HANDLE;
     }
     s = (STMT *)stmt;
     if (s->dbc == SQL_NULL_HDBC)
     {
     noconn:
+        printf("No connection");
         return noconn(s);
     }
     d = (DBC *)s->dbc;
@@ -2255,26 +1908,98 @@ drvexecute(SQLHSTMT stmt, int initial)
         return SQL_ERROR;
     }
 
-    s->presto_stmt = prestoclient_execute(d->presto_client, s->presto_stmt, NULL, NULL, NULL);
-    if (!s->presto_stmt)
+    ret = prestoclient_execute(d->presto_client, s->presto_stmt, NULL, NULL, NULL);
+    if (ret != PRESTO_OK)
     {
-        setstat(s, -1, "unable to execute query, was not prepared before", (*s->ov3) ? (char *)"HY000" : (char *)"S1000");
+        printf("Execute error %i", ret);
+        setstat(s, -1, "unable to execute query", (*s->ov3) ? (char *)"HY000" : (char *)"S1000");
         ret = SQL_ERROR;
+    } else {
+        ret = mkbindcols(s, s->presto_stmt->columncount);
     }
 
-    ret = mkbindcols(s, s->presto_stmt->columncount);
-
-    //
     // For INSERT/UPDATE/DELETE statements change the return code
     // to SQL_NO_DATA if the number of rows affected was 0.
-    //
-    if (*s->ov3 && s->isselect == 0 &&
-        ret == SQL_SUCCESS && nrows == 0)
+    if (*s->ov3 && s->isselect == 0 && ret == SQL_SUCCESS && nrows == 0)
     {
         ret = SQL_NO_DATA;
     }
     return ret;
 }
+
+/**
+ * Internal query execution used by SQLExecDirect().
+ * @param stmt statement handle
+ * @param initial false when called from SQLPutData()
+ * @result ODBC error code
+ */
+
+static SQLRETURN
+drvexecutedirect(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER queryLen)
+{
+    SQLRETURN ret;
+    STMT *s;
+    DBC *d;
+    char *errp = NULL;
+    int rc, busy_count;
+    size_t i, ncols = 0, nrows = 0;
+
+    if (stmt == SQL_NULL_HSTMT)
+    {
+        printf("Invalid handle");
+        return SQL_INVALID_HANDLE;
+    }
+    s = (STMT *)stmt;
+    if (s->dbc == SQL_NULL_HDBC)
+    {
+    noconn:
+        printf("No connection");
+        return noconn(s);
+    }
+    d = (DBC *)s->dbc;
+    if (!d->presto_client)
+    {
+        goto noconn;
+    }
+
+    s3stmt_end(s);
+    presto_stmt_drop(s);
+    freep(&s->query);
+
+    s->query = (SQLCHAR *)fixupsql((char *)query, queryLen,
+                                   (d->version >= 0x030805),
+                                   &s->nparams, &s->isselect, &errp);
+    if (!s->query)
+    {
+        if (errp)
+        {
+            setstat(s, -1, "%s", (*s->ov3) ? (char *)"HY000" : (char *)"S1000", errp);
+            return SQL_ERROR;
+        }
+        return nomem(s);
+    }
+    errp = NULL;
+    freeresult(s, -1);
+
+    ret = prestoclient_query(d->presto_client, &(s->presto_stmt), (char*)s->query, NULL, NULL, NULL);
+    if (ret != PRESTO_OK)
+    {
+        printf("Execute error %i", ret);
+        setstat(s, -1, "unable to execute query direct", (*s->ov3) ? (char *)"HY000" : (char *)"S1000");
+        ret = SQL_ERROR;
+    } else {
+        ret = mkbindcols(s, s->presto_stmt->columncount);        
+    }
+
+    // For INSERT/UPDATE/DELETE statements change the return code
+    // to SQL_NO_DATA if the number of rows affected was 0.
+    // if (*s->ov3 && s->isselect == 0 && ret == SQL_SUCCESS && s->presto_stmt->tablebuff->nrow == 0)
+    //{
+    //    ret = SQL_NO_DATA;
+    //}    
+    return ret;
+}
+
 
 /**
  * Execute query directly.
@@ -2295,11 +2020,7 @@ SQLExecDirect(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER queryLen)
 #if defined(_WIN32) || defined(_WIN64)
     if (!((STMT *)stmt)->oemcp[0])
     {
-        ret = drvprepare(stmt, query, queryLen);
-        if (ret == SQL_SUCCESS)
-        {
-            ret = drvexecute(stmt, 1);
-        }
+        ret = drvexecutedirect(stmt, query, queryLen);        
         goto done;
     }
     q = wmb_to_utf_c((char *)query, queryLen);
@@ -2311,11 +2032,7 @@ SQLExecDirect(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER queryLen)
     query = (SQLCHAR *)q;
     queryLen = SQL_NTS;
 #endif
-    ret = drvprepare(stmt, query, queryLen);
-    if (ret == SQL_SUCCESS)
-    {
-        ret = drvexecute(stmt, 1);
-    }
+    ret = drvexecutedirect(stmt, query, queryLen);    
 #if defined(_WIN32) || defined(_WIN64)
     uc_free(q);
 done:;
@@ -2584,7 +2301,6 @@ SQLExecute(SQLHSTMT stmt)
     SQLRETURN ret;
 
     HSTMT_LOCK(stmt);
-
     ret = drvexecute(stmt, 1);
     HSTMT_UNLOCK(stmt);
     return ret;
@@ -3177,7 +2893,7 @@ drvfetchscroll(SQLHSTMT stmt, SQLSMALLINT orient, SQLINTEGER offset)
         i = 0;
         goto done2;
     }
-    if (s->isselect != 1 && s->isselect != -1)
+    if (s->isselect != 1 && s->isselect != 3 && s->isselect != -1)
     {
         printf("Error: %s\n", "no result set!");
         setstat(s, -1, "no result set available", "24000");
@@ -4315,7 +4031,7 @@ drvbindcol(SQLHSTMT stmt, SQLUSMALLINT col, SQLSMALLINT type,
     --col;
     if (type == SQL_C_DEFAULT)
     {
-        type = mapdeftype(type, s->cols[col].type, 0,
+        type = mapdeftype(type, s->presto_stmt->columns[col]->type, 0,
                           s->nowchar[0] || s->nowchar[1]);
     }
     switch (type)
@@ -5145,7 +4861,7 @@ getrowdata(STMT *s, SQLUSMALLINT col, SQLSMALLINT otype,
 			{
 				*lenp = sizeof(TIMESTAMP_STRUCT);
 			}
-			switch (s->cols[col].prec)
+			switch (s->presto_stmt->columns[col]->precision)
 			{
 			case 0:
 				((TIMESTAMP_STRUCT *)val)->fraction = 0;
@@ -5217,3 +4933,521 @@ done:
 	HSTMT_UNLOCK(stmt);
 	return ret;
 }
+
+
+/**
+ * Internal describe column information.
+ * @param stmt statement handle
+ * @param col column number, starting at 1
+ * @param name buffer for column name
+ * @param nameMax length of name buffer
+ * @param nameLen output length of column name
+ * @param type output SQL type
+ * @param size output column size
+ * @param digits output number of digits
+ * @param nullable output NULL allowed indicator
+ * @result ODBC error code
+ */
+
+static SQLRETURN
+drvdescribecol(SQLHSTMT stmt, SQLUSMALLINT col, SQLCHAR *name,
+			   SQLSMALLINT nameMax, SQLSMALLINT *nameLen,
+			   SQLSMALLINT *type, SQLULEN *size,
+			   SQLSMALLINT *digits, SQLSMALLINT *nullable)
+{
+	STMT *s;
+	PRESTOCLIENT_COLUMN *c;
+	int didname = 0;
+
+	if (stmt == SQL_NULL_HSTMT)
+	{
+		return SQL_INVALID_HANDLE;
+	}
+	s = (STMT *)stmt;
+	if (!s->presto_stmt->columns)
+	{
+		setstat(s, -1, "no columns", (*s->ov3) ? "07009" : "S1002");
+		return SQL_ERROR;
+	}
+	if (col < 1 || col > s->presto_stmt->columncount)
+	{
+		setstat(s, -1, "invalid column", (*s->ov3) ? "07009" : "S1002");
+		return SQL_ERROR;
+	}
+	c = s->presto_stmt->columns[col - 1];
+	if (name && nameMax > 0)
+	{
+		strncpy((char *)name, c->name, nameMax);
+		name[nameMax - 1] = '\0';
+		didname = 1;
+	}
+	if (nameLen)
+	{
+		if (didname)
+		{
+			*nameLen = strlen((char *)name);
+		}
+		else
+		{
+			*nameLen = strlen(c->name);
+		}
+	}
+	if (type)
+	{
+		*type = c->type;
+#ifdef WINTERFACE
+		if (s->nowchar[0] || s->nowchar[1])
+		{
+			switch (c->type)
+			{
+			case SQL_WCHAR:
+				*type = SQL_CHAR;
+				break;
+			case SQL_WVARCHAR:
+				*type = SQL_VARCHAR;
+				break;
+#ifdef SQL_LONGVARCHAR
+			case SQL_WLONGVARCHAR:
+				*type = SQL_LONGVARCHAR;
+				break;
+#endif
+			}
+		}
+#endif
+	}
+	if (size)
+	{
+		*size = c->bytesize;
+	}
+	if (digits)
+	{
+		*digits = 0;
+	}
+	if (nullable)
+	{
+		*nullable = 1;
+	}
+	return SQL_SUCCESS;
+}
+
+#ifndef WINTERFACE
+/**
+ * Describe column information.
+ * @param stmt statement handle
+ * @param col column number, starting at 1
+ * @param name buffer for column name
+ * @param nameMax length of name buffer
+ * @param nameLen output length of column name
+ * @param type output SQL type
+ * @param size output column size
+ * @param digits output number of digits
+ * @param nullable output NULL allowed indicator
+ * @result ODBC error code
+ */
+
+SQLRETURN SQL_API
+SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT col, SQLCHAR *name,
+			   SQLSMALLINT nameMax, SQLSMALLINT *nameLen,
+			   SQLSMALLINT *type, SQLULEN *size,
+			   SQLSMALLINT *digits, SQLSMALLINT *nullable)
+{
+#if defined(_WIN32) || defined(_WIN64)
+	SQLSMALLINT len = 0;
+#endif
+	SQLRETURN ret;
+
+	HSTMT_LOCK(stmt);
+#if defined(_WIN32) || defined(_WIN64)
+	if (!((STMT *)stmt)->oemcp[0])
+	{
+		ret = drvdescribecol(stmt, col, name, nameMax, nameLen,
+							 type, size, digits, nullable);
+		goto done;
+	}
+	ret = drvdescribecol(stmt, col, name, nameMax,
+						 &len, type, size, digits, nullable);
+	if (ret == SQL_SUCCESS)
+	{
+		if (name)
+		{
+			if (len > 0)
+			{
+				SQLCHAR *n = NULL;
+
+				n = (SQLCHAR *)utf_to_wmb((char *)name, len);
+				if (n)
+				{
+					strncpy((char *)name, (char *)n, nameMax);
+					n[len] = 0;
+					len = min(nameMax, strlen((char *)n));
+					uc_free(n);
+				}
+				else
+				{
+					len = 0;
+				}
+			}
+			if (len <= 0)
+			{
+				len = 0;
+				if (nameMax > 0)
+				{
+					name[0] = 0;
+				}
+			}
+		}
+		else
+		{
+			STMT *s = (STMT *)stmt;
+			COL *c = s->cols + col - 1;
+
+			len = 0;
+			if (c->column)
+			{
+				len = strlen(c->column);
+			}
+		}
+		if (nameLen)
+		{
+			*nameLen = len;
+		}
+	}
+done:;
+#else
+	ret = drvdescribecol(stmt, col, name, nameMax, nameLen,
+						 type, size, digits, nullable);
+#endif
+	HSTMT_UNLOCK(stmt);
+	return ret;
+}
+#endif
+
+#ifdef WINTERFACE
+/**
+ * Describe column information (UNICODE version).
+ * @param stmt statement handle
+ * @param col column number, starting at 1
+ * @param name buffer for column name
+ * @param nameMax length of name buffer
+ * @param nameLen output length of column name
+ * @param type output SQL type
+ * @param size output column size
+ * @param digits output number of digits
+ * @param nullable output NULL allowed indicator
+ * @result ODBC error code
+ */
+
+SQLRETURN SQL_API
+SQLDescribeColW(SQLHSTMT stmt, SQLUSMALLINT col, SQLWCHAR *name,
+				SQLSMALLINT nameMax, SQLSMALLINT *nameLen,
+				SQLSMALLINT *type, SQLULEN *size,
+				SQLSMALLINT *digits, SQLSMALLINT *nullable)
+{
+	SQLRETURN ret;
+	SQLSMALLINT len = 0;
+
+	HSTMT_LOCK(stmt);
+	ret = drvdescribecol(stmt, col, (SQLCHAR *)name,
+						 (SQLSMALLINT)(nameMax * sizeof(SQLWCHAR)),
+						 &len, type, size, digits, nullable);
+	if (ret == SQL_SUCCESS)
+	{
+		if (name)
+		{
+			if (len > 0)
+			{
+				SQLWCHAR *n = NULL;
+
+				n = uc_from_utf((SQLCHAR *)name, len);
+				if (n)
+				{
+					uc_strncpy(name, n, nameMax);
+					n[len] = 0;
+					len = min(nameMax, uc_strlen(n));
+					uc_free(n);
+				}
+				else
+				{
+					len = 0;
+				}
+			}
+			if (len <= 0)
+			{
+				len = 0;
+				if (nameMax > 0)
+				{
+					name[0] = 0;
+				}
+			}
+		}
+		else
+		{
+			STMT *s = (STMT *)stmt;
+			COL *c = s->cols + col - 1;
+
+			len = 0;
+			if (c->column)
+			{
+				len = strlen(c->column);
+			}
+		}
+		if (nameLen)
+		{
+			*nameLen = len;
+		}
+	}
+	HSTMT_UNLOCK(stmt);
+	return ret;
+}
+#endif
+
+
+/**
+ * Internal return last HDBC or HSTMT error message.
+ * @param env environment handle or NULL
+ * @param dbc database connection handle or NULL
+ * @param stmt statement handle or NULL
+ * @param sqlState output buffer for SQL state
+ * @param nativeErr output buffer for native error code
+ * @param errmsg output buffer for error message
+ * @param errmax length of output buffer for error message
+ * @param errlen output length of error message
+ * @result ODBC error code
+ */
+
+static SQLRETURN
+drverror(SQLHENV env, SQLHDBC dbc, SQLHSTMT stmt,
+		 SQLCHAR *sqlState, SQLINTEGER *nativeErr,
+		 SQLCHAR *errmsg, SQLSMALLINT errmax, SQLSMALLINT *errlen)
+{
+	SQLCHAR dummy0[6];
+	SQLINTEGER dummy1;
+	SQLSMALLINT dummy2;
+
+	if (env == SQL_NULL_HENV &&
+		dbc == SQL_NULL_HDBC &&
+		stmt == SQL_NULL_HSTMT)
+	{
+		return SQL_INVALID_HANDLE;
+	}
+	if (sqlState)
+	{
+		sqlState[0] = '\0';
+	}
+	else
+	{
+		sqlState = dummy0;
+	}
+	if (!nativeErr)
+	{
+		nativeErr = &dummy1;
+	}
+	*nativeErr = 0;
+	if (!errlen)
+	{
+		errlen = &dummy2;
+	}
+	*errlen = 0;
+	if (errmsg)
+	{
+		if (errmax > 0)
+		{
+			errmsg[0] = '\0';
+		}
+	}
+	else
+	{
+		errmsg = dummy0;
+		errmax = 0;
+	}
+	if (stmt)
+	{
+		STMT *s = (STMT *)stmt;
+
+		HSTMT_LOCK(stmt);
+		if (s->logmsg[0] == '\0')
+		{
+			HSTMT_UNLOCK(stmt);
+			goto noerr;
+		}
+		*nativeErr = s->naterr;
+		strcpy((char *)sqlState, s->sqlstate);
+		if (errmax == SQL_NTS)
+		{
+			strcpy((char *)errmsg, "[SQLite]");
+			strcat((char *)errmsg, (char *)s->logmsg);
+			*errlen = strlen((char *)errmsg);
+		}
+		else
+		{
+			strncpy((char *)errmsg, "[SQLite]", errmax);
+			if (errmax - 8 > 0)
+			{
+				strncpy((char *)errmsg + 8, (char *)s->logmsg, errmax - 8);
+			}
+			*errlen = min(strlen((char *)s->logmsg) + 8, errmax);
+		}
+		s->logmsg[0] = '\0';
+		HSTMT_UNLOCK(stmt);
+		return SQL_SUCCESS;
+	}
+	if (dbc)
+	{
+		DBC *d = (DBC *)dbc;
+
+		HDBC_LOCK(dbc);
+		if (d->magic != DBC_MAGIC || d->logmsg[0] == '\0')
+		{
+			HDBC_UNLOCK(dbc);
+			goto noerr;
+		}
+		*nativeErr = d->naterr;
+		strcpy((char *)sqlState, d->sqlstate);
+		if (errmax == SQL_NTS)
+		{
+			strcpy((char *)errmsg, "[SQLite]");
+			strcat((char *)errmsg, (char *)d->logmsg);
+			*errlen = strlen((char *)errmsg);
+		}
+		else
+		{
+			strncpy((char *)errmsg, "[SQLite]", errmax);
+			if (errmax - 8 > 0)
+			{
+				strncpy((char *)errmsg + 8, (char *)d->logmsg, errmax - 8);
+			}
+			*errlen = min(strlen((char *)d->logmsg) + 8, errmax);
+		}
+		d->logmsg[0] = '\0';
+		HDBC_UNLOCK(dbc);
+		return SQL_SUCCESS;
+	}
+noerr:
+	sqlState[0] = '\0';
+	errmsg[0] = '\0';
+	*nativeErr = 0;
+	*errlen = 0;
+	return SQL_NO_DATA;
+}
+
+#ifndef WINTERFACE
+/**
+ * Return last HDBC or HSTMT error message.
+ * @param env environment handle or NULL
+ * @param dbc database connection handle or NULL
+ * @param stmt statement handle or NULL
+ * @param sqlState output buffer for SQL state
+ * @param nativeErr output buffer for native error code
+ * @param errmsg output buffer for error message
+ * @param errmax length of output buffer for error message
+ * @param errlen output length of error message
+ * @result ODBC error code
+ */
+
+SQLRETURN SQL_API
+SQLError(SQLHENV env, SQLHDBC dbc, SQLHSTMT stmt,
+		 SQLCHAR *sqlState, SQLINTEGER *nativeErr,
+		 SQLCHAR *errmsg, SQLSMALLINT errmax, SQLSMALLINT *errlen)
+{
+	return drverror(env, dbc, stmt, sqlState, nativeErr,
+					errmsg, errmax, errlen);
+}
+#endif
+
+#ifdef WINTERFACE
+/**
+ * Return last HDBC or HSTMT error message (UNICODE version).
+ * @param env environment handle or NULL
+ * @param dbc database connection handle or NULL
+ * @param stmt statement handle or NULL
+ * @param sqlState output buffer for SQL state
+ * @param nativeErr output buffer for native error code
+ * @param errmsg output buffer for error message
+ * @param errmax length of output buffer for error message
+ * @param errlen output length of error message
+ * @result ODBC error code
+ */
+
+SQLRETURN SQL_API
+SQLErrorW(SQLHENV env, SQLHDBC dbc, SQLHSTMT stmt,
+		  SQLWCHAR *sqlState, SQLINTEGER *nativeErr,
+		  SQLWCHAR *errmsg, SQLSMALLINT errmax, SQLSMALLINT *errlen)
+{
+	char state[16];
+	SQLSMALLINT len = 0;
+	SQLRETURN ret;
+
+	ret = drverror(env, dbc, stmt, (SQLCHAR *)state, nativeErr,
+				   (SQLCHAR *)errmsg, errmax, &len);
+	if (ret == SQL_SUCCESS)
+	{
+		if (sqlState)
+		{
+			uc_from_utf_buf((SQLCHAR *)state, -1, sqlState,
+							6 * sizeof(SQLWCHAR));
+		}
+		if (errmsg)
+		{
+			if (len > 0)
+			{
+				SQLWCHAR *e = NULL;
+
+				e = uc_from_utf((SQLCHAR *)errmsg, len);
+				if (e)
+				{
+					if (errmax > 0)
+					{
+						uc_strncpy(errmsg, e, errmax);
+						e[len] = 0;
+						len = min(errmax, uc_strlen(e));
+					}
+					else
+					{
+						len = uc_strlen(e);
+					}
+					uc_free(e);
+				}
+				else
+				{
+					len = 0;
+				}
+			}
+			if (len <= 0)
+			{
+				len = 0;
+				if (errmax > 0)
+				{
+					errmsg[0] = 0;
+				}
+			}
+		}
+		else
+		{
+			len = 0;
+		}
+		if (errlen)
+		{
+			*errlen = len;
+		}
+	}
+	else if (ret == SQL_NO_DATA)
+	{
+		if (sqlState)
+		{
+			sqlState[0] = 0;
+		}
+		if (errmsg)
+		{
+			if (errmax > 0)
+			{
+				errmsg[0] = 0;
+			}
+		}
+		if (errlen)
+		{
+			*errlen = 0;
+		}
+	}
+	return ret;
+}
+#endif

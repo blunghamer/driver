@@ -153,10 +153,10 @@ PRESTOCLIENT_TABLEBUFFER *new_tablebuffer(size_t initialsize)
 
 void grow_tablebuffer(PRESTOCLIENT_TABLEBUFFER *tab, size_t addsize)
 {
-	size_t newsz = tab->nalloc + addsize;
-	printf("%li reallocate old %li\n", newsz, tab->nalloc);
+	size_t newsz = tab->nalloc + addsize;	
+	// printf("%li reallocate old %li\n", newsz, tab->nalloc);
 	tab->rowbuff = (char **)realloc(tab->rowbuff,newsz* sizeof(char*));
-	printf("success reallocate %li\n", newsz);
+	// printf("success reallocate %li\n", newsz);
 	tab->nalloc = newsz;
 }
 
@@ -167,7 +167,7 @@ static void delete_tablebuffer(PRESTOCLIENT_TABLEBUFFER *tab)
 
 	if (tab->rowbuff)
 	{
-		for (size_t zz = 0; zz < tab->ndata; zz++)
+		for (size_t zz = 0; zz < (size_t)tab->ndata; zz++)
 		{
 			if (tab->rowbuff[zz])
 			{
@@ -185,7 +185,10 @@ static void tablebuffer_print(PRESTOCLIENT_TABLEBUFFER *tab)
 	if (!tab)
 		return;
 
-	for (size_t zz = 0; zz < tab->ndata; zz++)
+	if (tab->ndata <= 0 )
+		return;
+
+	for (size_t zz = 0; zz < (size_t)tab->ndata; zz++)
 	{
 		if (tab->rowbuff[zz])
 			printf("%s\t", tab->rowbuff[zz]);
@@ -217,6 +220,7 @@ static PRESTOCLIENT_RESULT *new_prestoresult()
 	result->lastresponse = NULL;
 	result->lastresponsebuffersize = 0;
 	result->lastresponseactualsize = 0;
+	result->query = NULL;
 	result->prepared_stmt_hdr = NULL;
 	result->prepared_stmt_name = NULL;
 	result->columns = NULL;
@@ -276,6 +280,9 @@ static void delete_prestoresult(PRESTOCLIENT_RESULT *result)
 
 	if (result->lastresponse)
 		free(result->lastresponse);
+
+	if (result->query)
+		free(result->query);
 
 	if (result->prepared_stmt_hdr)
 		free(result->prepared_stmt_hdr);
@@ -557,7 +564,9 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *use
 	// Add terminating zero
 	result->lastresponse[result->lastresponseactualsize] = 0;
 
-	printf("%s\n", result->lastresponse);
+	if (result->client->trace_http)
+		printf("%s\n", result->lastresponse);
+
 	// Start/continue parsing json. Stop on errors
 	if (!json_reader(result))
 		return 0;
@@ -608,11 +617,12 @@ static size_t header_callback(char *buffer, size_t size,
 {
 	size_t length = nitems * size;
 	PRESTOCLIENT_RESULT *result = (PRESTOCLIENT_RESULT *)userdata;
-
-	// header set is: "X-Presto-Added-Prepare: qryname=select+*+from*...
+	// header set is: "<headername>: <headervalue>crlf
+	// headers are separated by crlf and curl returns that suffix to us so we always subtract two chars at the end
+	
+	// 26 = strlen(header) + 4 (separator and suffix)
 	if (length > 26 && strncmp("X-Presto-Added-Prepare", buffer, 22) == 0)
-	{
-		printf("can work with prepared statement: >%.*s< items: %li size: %li \n", (int)length, buffer, nitems, size);
+	{		
 		size_t cidx = findinstring(buffer, '=');
 		if (cidx > 25)
 		{
@@ -820,7 +830,8 @@ static unsigned int openuri(enum E_HTTP_REQUEST_TYPES in_request_type,
 	// Set request body
 	if (in_request_type == PRESTOCLIENT_HTTP_REQUEST_TYPE_POST)
 	{
-		printf("query sent is: %s\n", in_body);
+		if (result->client->trace_http)
+			printf("query sent is: %s\n", in_body);
 		curl_easy_setopt(hcurl, CURLOPT_POSTFIELDS, in_body);
 		curl_easy_setopt(hcurl, CURLOPT_POSTFIELDSIZE, (long)strlen(in_body));
 	}
@@ -1223,7 +1234,7 @@ int prestoclient_query(PRESTOCLIENT *prestoclient,
 						void *in_client_object)
 	{
 	int rc = PRESTOCLIENT_RESULT_OK;
-	PRESTOCLIENT_RESULT *res = NULL;
+	PRESTOCLIENT_RESULT *ret = NULL;
 	unsigned long buffersize;
 
 	if (!prestoclient)
@@ -1236,48 +1247,48 @@ int prestoclient_query(PRESTOCLIENT *prestoclient,
 	if (prestoclient && in_sql_statement && strlen(in_sql_statement) > 0)
 	{
 		// Prepare the result set
-		res = new_prestoresult();
-		if (!res) {
+		ret = new_prestoresult();
+		if (!ret) {
 			rc = PRESTO_NO_MEMORY;
 			goto exit;
 		}
 
-		res->client = prestoclient;
+		ret->client = prestoclient;
 
 		if (in_write_callback_function)
 		{
-			res->write_callback_function = in_write_callback_function;
+			ret->write_callback_function = in_write_callback_function;
 		}
 		else
 		{
-			res->write_callback_function = &write_callback_buffer;
+			ret->write_callback_function = &write_callback_buffer;
 		}
 
-		res->describe_callback_function = in_describe_callback_function;
+		ret->describe_callback_function = in_describe_callback_function;
 
-		res->client_object = in_client_object;
+		ret->client_object = in_client_object;
 
-		res->hcurl = curl_easy_init();
-		if (!res->hcurl) {			
+		ret->hcurl = curl_easy_init();
+		if (!ret->hcurl) {			
 			rc = PRESTO_NO_MEMORY;
 			goto exit;
 		}
 
 		// Reserve memory for curl data buffer
-		res->lastresponse = (char *)malloc(buffersize + 1); //  * sizeof(char) ?
-		if (!res->lastresponse) {
+		ret->lastresponse = (char *)malloc(buffersize + 1); //  * sizeof(char) ?
+		if (!ret->lastresponse) {
 			rc = PRESTO_NO_MEMORY;
 			goto exit;
 		}			
-		memset(res->lastresponse, 0, buffersize); //  * sizeof(char) ?
-		res->lastresponsebuffersize = buffersize;
+		memset(ret->lastresponse, 0, buffersize); //  * sizeof(char) ?
+		ret->lastresponsebuffersize = buffersize;
 
 		// Add resultset to the client
-		add_result(res);
+		add_result(ret);
 
 		// Create request
 		if (openuri(PRESTOCLIENT_HTTP_REQUEST_TYPE_POST,
-					res->hcurl,
+					ret->hcurl,
 					prestoclient->baseurl,
 					NULL,
 					in_sql_statement,
@@ -1288,22 +1299,58 @@ int prestoclient_query(PRESTOCLIENT *prestoclient,
 					prestoclient->timezone,
 					prestoclient->language,
 					&buffersize,
-					res) == PRESTOCLIENT_RESULT_OK)
+					ret) == PRESTOCLIENT_RESULT_OK)
 		{
 			// Start polling server for data
-			prestoclient_waituntilfinished(res);
-			tablebuffer_print(res->tablebuff);
+			prestoclient_waituntilfinished(ret);
+			tablebuffer_print(ret->tablebuff);
+
+			// nevertheless we have to check for presto errors in the body of the result (not header code only)
+			// Query succeeded ?
+			if (prestoclient_getstatus(ret) != PRESTOCLIENT_STATUS_SUCCEEDED) {
+				rc = PRESTO_BACKEND_ERROR;
+				goto exit;
+			}
+
+			// Messages from presto server
+			if (prestoclient_getlastservererror(ret))
+			{
+				printf("%s\n", prestoclient_getlastservererror(ret));
+				printf("Serverstate = %s\n", prestoclient_getlastserverstate(ret));
+				rc = PRESTO_BACKEND_ERROR;
+				goto exit;
+			}
+
+			// Messages from prestoclient
+			if (prestoclient_getlastclienterror(ret))
+			{
+				printf("%s\n", prestoclient_getlastclienterror(ret));
+				rc = PRESTO_BACKEND_ERROR;
+				goto exit;
+			}
+
+			// Messages from curl
+			if (prestoclient_getlastcurlerror(ret))
+			{
+				printf("%s\n", prestoclient_getlastcurlerror(ret));
+				rc = PRESTO_BACKEND_ERROR;
+				goto exit;
+			}
 		} else {
 			rc = PRESTO_BAD_REQUEST;
 		}
 	}
 exit:
+	// this should no deallocated, the client has to we should return the statement handle
+	*result = ret;	
 	if (rc != PRESTOCLIENT_RESULT_OK) {
-		if (res)
-			delete_prestoresult(res);
-	} else {
-		*result = res;
-	}
+		if (ret) {
+			remove_result(ret);
+			delete_prestoresult(ret);			
+			ret = NULL;
+		}
+	} 
+	*result = ret;	
 	return rc;
 }
 
@@ -1315,7 +1362,7 @@ int prestoclient_prepare(PRESTOCLIENT *prestoclient,
 	size_t sql_len;
 	char *prep_name;
 	char *prepqry;
-	PRESTOCLIENT_RESULT *res = NULL;
+	PRESTOCLIENT_RESULT *ret = NULL;
 	PRESTOCLIENT_RESULT *res_output = NULL;
 	PRESTOCLIENT_RESULT *res_input = NULL;
 	unsigned long buffersize;
@@ -1331,46 +1378,46 @@ int prestoclient_prepare(PRESTOCLIENT *prestoclient,
 
 	// Go for cleanup when exiting from this point
 
-	res = new_prestoresult();
+	ret = new_prestoresult();
 	if (!result) {
 		rc = PRESTO_NO_MEMORY;
 		goto exit;
 	}
 
-	res->client = prestoclient;
-	res->describe_callback_function = NULL;	
-	res->write_callback_function = &write_callback_buffer;
-	res->client_object = NULL;
+	ret->client = prestoclient;
+	ret->describe_callback_function = NULL;	
+	ret->write_callback_function = &write_callback_buffer;
+	ret->client_object = NULL;
 
-	res->hcurl = curl_easy_init();
-	if (!res->hcurl)
+	ret->hcurl = curl_easy_init();
+	if (!ret->hcurl)
 	{		
 		rc = PRESTO_NO_MEMORY;
 		goto exit;
 	}
 
 	// Reserve memory for curl data buffer
-	res->lastresponse = (char *)malloc(sizeof(char) * (buffersize + 1)); 
-	if (!res->lastresponse) {
+	ret->lastresponse = (char *)malloc(sizeof(char) * (buffersize + 1)); 
+	if (!ret->lastresponse) {
 		result = NULL;
 		goto exit;
 	}
 
 	// init buffer
-	memset(res->lastresponse, 0, buffersize);
-	res->lastresponsebuffersize = buffersize;
+	memset(ret->lastresponse, 0, buffersize);
+	ret->lastresponsebuffersize = buffersize;
 
 	// Add resultset to the client
-	add_result(res);
+	add_result(ret);
 	prep_name = (char *)malloc(sizeof(char) * 10);
-	sprintf(prep_name, "qry%li", res->client->active_results);
+	sprintf(prep_name, "qry%li", ret->client->active_results);
 
 	prepqry = (char *)malloc(sizeof(char) * (sql_len + 40));
 	sprintf(prepqry, "PREPARE %s FROM %s", prep_name, in_sql_statement);
 
 	// Create actual request
 	if (openuri(PRESTOCLIENT_HTTP_REQUEST_TYPE_POST,
-				res->hcurl,
+				ret->hcurl,
 				prestoclient->baseurl,
 				NULL,
 				prepqry,
@@ -1381,11 +1428,43 @@ int prestoclient_prepare(PRESTOCLIENT *prestoclient,
 				prestoclient->timezone,
 				prestoclient->language,
 				&buffersize,
-				res) == PRESTOCLIENT_RESULT_OK)
+				ret) == PRESTOCLIENT_RESULT_OK)
 	{
 		// Start polling server for data
-		prestoclient_waituntilfinished(res);
-		tablebuffer_print(res->tablebuff);
+		prestoclient_waituntilfinished(ret);
+		tablebuffer_print(ret->tablebuff);
+
+		// nevertheless we have to check for presto errors in the body of the result (header are not sufficient only)
+		// Query succeeded ?
+		if (prestoclient_getstatus(ret) != PRESTOCLIENT_STATUS_SUCCEEDED) {
+			rc = PRESTO_BACKEND_ERROR;
+			goto exit;
+		}
+
+		// Messages from presto server
+		if (prestoclient_getlastservererror(ret))
+		{
+			printf("%s\n", prestoclient_getlastservererror(ret));
+			printf("Serverstate = %s\n", prestoclient_getlastserverstate(ret));
+			rc = PRESTO_BACKEND_ERROR;
+			goto exit;
+		}
+
+		// Messages from prestoclient
+		if (prestoclient_getlastclienterror(ret))
+		{
+			printf("%s\n", prestoclient_getlastclienterror(ret));
+			rc = PRESTO_BACKEND_ERROR;
+			goto exit;
+		}
+
+		// Messages from curl
+		if (prestoclient_getlastcurlerror(ret))
+		{
+			printf("%s\n", prestoclient_getlastcurlerror(ret));
+			rc = PRESTO_BACKEND_ERROR;
+			goto exit;
+		}
 	}
 	else
 	{
@@ -1401,13 +1480,13 @@ int prestoclient_prepare(PRESTOCLIENT *prestoclient,
 	}
 
 	// deep clone from first prepared query, do not directly do enable freeing
-	alloc_copy(&res_output->prepared_stmt_hdr, res->prepared_stmt_hdr);
-	alloc_copy(&res_output->prepared_stmt_name, res->prepared_stmt_name);
+	alloc_copy(&res_output->prepared_stmt_hdr, ret->prepared_stmt_hdr);
+	alloc_copy(&res_output->prepared_stmt_name, ret->prepared_stmt_name);
 	
 	// Get columns of prepared statement
 	sprintf(prepqry, "DESCRIBE OUTPUT %s ", prep_name);
 	if (openuri(PRESTOCLIENT_HTTP_REQUEST_TYPE_POST,
-				res->hcurl,
+				res_output->hcurl,
 				prestoclient->baseurl,
 				NULL,
 				prepqry,
@@ -1423,6 +1502,38 @@ int prestoclient_prepare(PRESTOCLIENT *prestoclient,
 		// Start polling server for data
 		prestoclient_waituntilfinished(res_output);
 		tablebuffer_print(res_output->tablebuff);
+
+		// nevertheless we have to check for presto errors in the body of the result (not header code only)
+		// Query succeeded ?
+		if (prestoclient_getstatus(res_output) != PRESTOCLIENT_STATUS_SUCCEEDED) {
+			rc = PRESTO_BACKEND_ERROR;
+			goto exit;
+		}
+
+		// Messages from presto server
+		if (prestoclient_getlastservererror(res_output))
+		{
+			printf("%s\n", prestoclient_getlastservererror(res_output));
+			printf("Serverstate = %s\n", prestoclient_getlastserverstate(res_output));
+			rc = PRESTO_BACKEND_ERROR;
+			goto exit;
+		}
+
+		// Messages from prestoclient
+		if (prestoclient_getlastclienterror(res_output))
+		{
+			printf("%s\n", prestoclient_getlastclienterror(res_output));
+			rc = PRESTO_BACKEND_ERROR;
+			goto exit;
+		}
+
+		// Messages from curl
+		if (prestoclient_getlastcurlerror(res_output))
+		{
+			printf("%s\n", prestoclient_getlastcurlerror(res_output));
+			rc = PRESTO_BACKEND_ERROR;
+			goto exit;
+		}
 	}
 	else
 	{
@@ -1431,21 +1542,21 @@ int prestoclient_prepare(PRESTOCLIENT *prestoclient,
 	}
 
 	// now we have the real columns of the query, so we delete them and reset them with the real stuff
-	if (res->columns)
+	if (ret->columns)
 	{
-		for (size_t i = 0; i < res->columncount; i++)
+		for (size_t i = 0; i < ret->columncount; i++)
 		{
-			if (res->columns[i])
-				delete_prestocolumn(res->columns[i]);
+			if (ret->columns[i])
+				delete_prestocolumn(ret->columns[i]);
 		}
-		free(res->columns);
-		res->columns = NULL;
+		free(ret->columns);
+		ret->columns = NULL;
 	}
 
 	// we have as much columns in the final result set as rows in this records set
-	res->columncount = res_output->tablebuff->nrow;
-	res->columns = (PRESTOCLIENT_COLUMN**)malloc(res->columncount * sizeof(PRESTOCLIENT_COLUMN*) );	
-	for (size_t ridx = 0 ; ridx < res->columncount; ridx++){
+	ret->columncount = res_output->tablebuff->nrow;
+	ret->columns = (PRESTOCLIENT_COLUMN**)malloc(ret->columncount * sizeof(PRESTOCLIENT_COLUMN*) );	
+	for (size_t ridx = 0 ; ridx < ret->columncount; ridx++){
 		PRESTOCLIENT_COLUMN* tmp = new_prestocolumn();
 		alloc_copy(&(tmp->name), res_output->tablebuff->rowbuff[ridx * res_output->tablebuff->ncol + 0]);
 		alloc_copy(&(tmp->catalog), res_output->tablebuff->rowbuff[ridx * res_output->tablebuff->ncol + 1]);
@@ -1455,7 +1566,7 @@ int prestoclient_prepare(PRESTOCLIENT *prestoclient,
 		//alloc_copy(&(tmp->type), res_output->tablebuff->rowbuff[ridx * res_output->tablebuff->ncol + 4]);
 		//alloc_copy(&(tmp->bytesize), res_output->tablebuff->rowbuff[ridx * res_output->tablebuff->ncol + 5]);
 		//alloc_copy(&(tmp->alias), res_output->tablebuff->rowbuff[ridx * res_output->tablebuff->ncol + 6]);
-		res->columns[ridx] = tmp;		
+		ret->columns[ridx] = tmp;		
 	}
 
 	res_input = new_prestoresult_readied(prestoclient, buffersize);
@@ -1465,12 +1576,12 @@ int prestoclient_prepare(PRESTOCLIENT *prestoclient,
 	}
 
 	// deep clone from first prepared query, do not directly do enable freeing
-	alloc_copy(&res_input->prepared_stmt_hdr, res->prepared_stmt_hdr);
-	alloc_copy(&res_input->prepared_stmt_name, res->prepared_stmt_name);
+	alloc_copy(&res_input->prepared_stmt_hdr, ret->prepared_stmt_hdr);
+	alloc_copy(&res_input->prepared_stmt_name, ret->prepared_stmt_name);
 	
 	sprintf(prepqry, "DESCRIBE INPUT %s ", prep_name);
 	if (openuri(PRESTOCLIENT_HTTP_REQUEST_TYPE_POST,
-				res->hcurl,
+				res_input->hcurl,
 				prestoclient->baseurl,
 				NULL,
 				prepqry,
@@ -1485,7 +1596,39 @@ int prestoclient_prepare(PRESTOCLIENT *prestoclient,
 	{
 		// Start polling server for data
 		prestoclient_waituntilfinished(res_input);	
-		tablebuffer_print(res_input->tablebuff);	
+		tablebuffer_print(res_input->tablebuff);
+
+		// nevertheless we have to check for presto errors in the body of the result (not header code only)
+		// Query succeeded ?
+		if (prestoclient_getstatus(res_input) != PRESTOCLIENT_STATUS_SUCCEEDED) {
+			rc = PRESTO_BACKEND_ERROR;
+			goto exit;
+		}
+
+		// Messages from presto server
+		if (prestoclient_getlastservererror(res_input))
+		{
+			printf("%s\n", prestoclient_getlastservererror(res_input));
+			printf("Serverstate = %s\n", prestoclient_getlastserverstate(res_input));
+			rc = PRESTO_BACKEND_ERROR;
+			goto exit;
+		}
+
+		// Messages from prestoclient
+		if (prestoclient_getlastclienterror(res_input))
+		{
+			printf("%s\n", prestoclient_getlastclienterror(res_input));
+			rc = PRESTO_BACKEND_ERROR;
+			goto exit;
+		}
+
+		// Messages from curl
+		if (prestoclient_getlastcurlerror(res_input))
+		{
+			printf("%s\n", prestoclient_getlastcurlerror(res_input));
+			rc = PRESTO_BACKEND_ERROR;
+			goto exit;
+		}	
 	}
 	else
 	{
@@ -1503,14 +1646,13 @@ exit:
 		delete_prestoresult(res_output);
 
 	if (rc != PRESTO_OK) { 
-		if (res) {
-			remove_result(res);
-			delete_prestoresult(res);
-			result = NULL;
+		if (ret) {
+			remove_result(ret);
+			delete_prestoresult(ret);
+			ret = NULL;
 		}
-	} else {
-		*result = res;
 	}	
+	*result = ret;	
 	return rc;
 }
 
@@ -1521,9 +1663,8 @@ int prestoclient_execute(PRESTOCLIENT *prestoclient
 						void *in_client_object)
 {
 	int rc = PRESTO_OK;
-	unsigned long buffersize;
-	char *in_sql_statement;
-	buffersize = PRESTOCLIENT_CURL_BUFFERSIZE;
+	unsigned long buffersize = PRESTOCLIENT_CURL_BUFFERSIZE;
+	char *in_sql_statement = NULL;	
 
 	if (prestoclient && prepared_result && prepared_result->prepared_stmt_name && strlen(prepared_result->prepared_stmt_name) > 0)
 	{
@@ -1569,8 +1710,16 @@ int prestoclient_execute(PRESTOCLIENT *prestoclient
 	}
 	else
 	{
-		rc = PRESTO_BAD_REQUEST;		
-		goto exit;
+		// if we got a fully executed query already...
+		if (prepared_result->query && strlen(prepared_result->query ) > 0) {
+			printf("No need to execute, this is a special case\n");
+			rc = PRESTO_OK;
+			goto exit;
+		} else {
+			printf("Unable to work with prepared query\n");
+			rc = PRESTO_BAD_REQUEST;		
+			goto exit;
+		}
 	}
 exit:
 	if (in_sql_statement)
@@ -1586,10 +1735,9 @@ exit:
 	return rc;
 }
 
-static void *prestoclient_unprepare(PRESTOCLIENT *prestoclient, PRESTOCLIENT_RESULT *prepared_result)
+static void prestoclient_unprepare(PRESTOCLIENT *prestoclient, PRESTOCLIENT_RESULT *prepared_result)
 {
 	unsigned long buffersize;
-
 	buffersize = PRESTOCLIENT_CURL_BUFFERSIZE;
 
 	if (prestoclient && prepared_result && prepared_result->prepared_stmt_name && strlen(prepared_result->prepared_stmt_name))
@@ -1619,16 +1767,26 @@ static void *prestoclient_unprepare(PRESTOCLIENT *prestoclient, PRESTOCLIENT_RES
 			// Start polling server for data
 			prestoclient_waituntilfinished(prepared_result);
 			tablebuffer_print(prepared_result->tablebuff);
+
+			if (prepared_result->prepared_stmt_hdr) {
+				free(prepared_result->prepared_stmt_hdr);
+			}
+			prepared_result->prepared_stmt_hdr = NULL;
+			if (prepared_result->prepared_stmt_name) {
+				free(prepared_result->prepared_stmt_name);
+			}
+			prepared_result->prepared_stmt_name = NULL;
 		}
+		/*		
 		else
 		{
 			remove_result(prepared_result);
 			delete_prestoresult(prepared_result);
 			prepared_result = NULL;
 		}
+		*/
 		free(deallocqry);
-	}
-	return prepared_result;
+	}	
 }
 
 void prestoclient_deleteresult(PRESTOCLIENT *prestoclient, PRESTOCLIENT_RESULT *result)
@@ -1636,7 +1794,8 @@ void prestoclient_deleteresult(PRESTOCLIENT *prestoclient, PRESTOCLIENT_RESULT *
 	if (prestoclient && result)
 	{
 		prestoclient_unprepare(prestoclient, result);
-		prestoclient_cancelquery(result);
+		if (result)
+			prestoclient_cancelquery(result);
 		if (result)
 			delete_prestoresult(result);
 		result = NULL;

@@ -10,6 +10,8 @@
 
 #include "../prestoclient/prestoclient.h"
 #include "../prestoclient/prestoclienttypes.h"
+#include "../prestoclient/sqlparser.h"
+
 #include "wcutils.h"
 #include "str2odbc.h"
 
@@ -171,11 +173,10 @@ typedef struct stmt {
     SQLCHAR cursorname[32];	/**< Cursor name */
     SQLCHAR *query;		/**< Current query, raw string */
     int *ov3;			/**< True for SQL_OV_ODBC3 */
-    int *oemcp;			/**< True for Win32 OEM CP translation */
-    // int *jdconv;		/**< True for julian day conversion */
+    int *oemcp;			/**< True for Win32 OEM CP translation */    
     int isselect;		/**< > 0 if query is a SELECT statement */
-    size_t ncols;			/**< Number of result columns */
-    COL *cols;			/**< Result column array */
+    //size_t ncols;			/**< Number of result columns */
+    // COL *cols;			/**< Result column array */
     COL *dyncols;		/**< Column array, but malloc()ed */
     size_t dcols;			/**< Number of entries in dyncols */
     int bkmrk;			/**< True when bookmarks used */

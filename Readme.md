@@ -6,6 +6,13 @@ This is based on christian werners SQLiteODBC driver and Ivo Herweijers Presto C
 
 GNU General Public License
 
+## Dependencies
+
+- cmake build tooling
+- curl for http calls
+- unixodbc for sql.h header definitions and isql test utility
+- check c testing framework
+
 ## Experimentation
 
 This is an exporiment how fast one can lean C with something productive:
@@ -21,17 +28,19 @@ This is an exporiment how fast one can lean C with something productive:
         - Enable complex types ROW, ARRAY, JSON
     - [ ] Mapping to translate to proper ODBC Data Types
 
-- [ ] Properly add null records
+- [ ] Properly add null in records
 - [X] Check if there is a weird bug in the tablebuff data, not it was in very long an complex sqlite char casting code
 - [ ] Prepare should capture input and output columns early to enable bind to those for clients before pulling data
+    - [X] Output columns 
+    - [ ] Input columns
 
-- [] Functionality
+- [ ] Functionality
     - [ ] Pull in data in chunks
     - [ ] Driver vs PrestoClient Implementation 
 
-- [] Use header information properly
-    - [ ] set catalog
-    - [ ] set schema
+- [ ] Use header information properly
+    - [X] set catalog
+    - [X] set schema
     - [ ] transaction handling
 
 - [ ] No resource leaks in API client usage
@@ -43,7 +52,7 @@ This is an exporiment how fast one can lean C with something productive:
     - [ ] Environment
 
 - [] Tests
-    - [ ] "Show queries" are core dumping the whole thing
+    - [ ] "Show queries" are core dumping the whole ODBC driver thing
 
 - [ ] Windows Build driver dll with embedded libc and friends
 

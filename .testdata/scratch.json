@@ -1,124 +1,294 @@
 {
-    "id": "20201011_144309_00208_xn8dw",
-    "infoUri": "http://localhost:8080/ui/query.html?20201011_144309_00208_xn8dw",
+    "id": "20201012_161214_00471_t2uec",
+    "infoUri": "http://localhost:8080/ui/query.html?20201012_161214_00471_t2uec",
+    "partialCancelUri": "http://localhost:8080/v1/statement/executing/partialCancel/20201012_161214_00471_t2uec/0/y01b120b924824dfc9f41c7de1c24a07d0b92da0d/1",
+    "nextUri": "http://localhost:8080/v1/statement/executing/20201012_161214_00471_t2uec/y01b120b924824dfc9f41c7de1c24a07d0b92da0d/1",
     "columns": [
         {
-            "name": "Column Name",
-            "type": "varchar(17)",
+            "name": "rule_name",
+            "type": "varchar",
             "typeSignature": {
                 "rawType": "varchar",
                 "arguments": [
                     {
                         "kind": "LONG",
-                        "value": 17
+                        "value": 2147483647
                     }
                 ]
             }
         },
         {
-            "name": "Catalog",
-            "type": "varchar(6)",
+            "name": "invocations",
+            "type": "bigint",
             "typeSignature": {
-                "rawType": "varchar",
-                "arguments": [
-                    {
-                        "kind": "LONG",
-                        "value": 6
-                    }
-                ]
-            }
-        },
-        {
-            "name": "Schema",
-            "type": "varchar(7)",
-            "typeSignature": {
-                "rawType": "varchar",
-                "arguments": [
-                    {
-                        "kind": "LONG",
-                        "value": 7
-                    }
-                ]
-            }
-        },
-        {
-            "name": "Table",
-            "type": "varchar(7)",
-            "typeSignature": {
-                "rawType": "varchar",
-                "arguments": [
-                    {
-                        "kind": "LONG",
-                        "value": 7
-                    }
-                ]
-            }
-        },
-        {
-            "name": "Type",
-            "type": "varchar(14)",
-            "typeSignature": {
-                "rawType": "varchar",
-                "arguments": [
-                    {
-                        "kind": "LONG",
-                        "value": 14
-                    }
-                ]
-            }
-        },
-        {
-            "name": "Type Size",
-            "type": "integer",
-            "typeSignature": {
-                "rawType": "integer",
+                "rawType": "bigint",
                 "arguments": []
             }
         },
         {
-            "name": "Aliased",
-            "type": "boolean",
+            "name": "matches",
+            "type": "bigint",
             "typeSignature": {
-                "rawType": "boolean",
+                "rawType": "bigint",
                 "arguments": []
+            }
+        },
+        {
+            "name": "failures",
+            "type": "bigint",
+            "typeSignature": {
+                "rawType": "bigint",
+                "arguments": []
+            }
+        },
+        {
+            "name": "average_time",
+            "type": "double",
+            "typeSignature": {
+                "rawType": "double",
+                "arguments": []
+            }
+        },
+        {
+            "name": "time_distribution_percentiles",
+            "type": "map(double, double)",
+            "typeSignature": {
+                "rawType": "map",
+                "arguments": [
+                    {
+                        "kind": "TYPE",
+                        "value": {
+                            "rawType": "double",
+                            "arguments": []
+                        }
+                    },
+                    {
+                        "kind": "TYPE",
+                        "value": {
+                            "rawType": "double",
+                            "arguments": []
+                        }
+                    }
+                ]
             }
         }
     ],
-    "stats": {
-        "state": "FINISHED",
-        "queued": false,
-        "scheduled": true,
-        "nodes": 1,
-        "totalSplits": 1,
-        "queuedSplits": 0,
-        "runningSplits": 0,
-        "completedSplits": 1,
-        "cpuTimeMillis": 0,
-        "wallTimeMillis": 0,
-        "queuedTimeMillis": 0,
-        "elapsedTimeMillis": 59,
-        "processedRows": 0,
-        "processedBytes": 0,
-        "physicalInputBytes": 0,
-        "peakMemoryBytes": 0,
-        "spilledBytes": 0,
-        "rootStage": {
-            "stageId": "0",
-            "state": "FINISHED",
-            "done": true,
-            "nodes": 1,
-            "totalSplits": 1,
-            "queuedSplits": 0,
-            "runningSplits": 0,
-            "completedSplits": 1,
-            "cpuTimeMillis": 0,
-            "wallTimeMillis": 0,
-            "processedRows": 15,
-            "processedBytes": 0,
-            "physicalInputBytes": 0,
-            "subStages": []
-        },
-        "progressPercentage": 100.0
-    },
-    "warnings": []
-}
+    "data": [
+        [
+            "PushProjectionIntoTableScan",
+            104,
+            0,
+            0,
+            158.84354807692307,
+            {
+                "0.0": 7.404,
+                "0.28": 58.03253000000001,
+                "0.46": 92.44184000000001,
+                "0.14": 29.738,
+                "0.43": 87.84213000000001,
+                "0.45": 91.37,
+                "0.23": 52.723,
+                "0.86": 234.936,
+                "0.9": 289.202,
+                "0.09": 13.178,
+                "0.1": 15.278,
+                "0.61": 132.52394,
+                "0.65": 146.35745,
+                "0.56": 116.05532000000002,
+                "0.05": 10.322,
+                "0.92": 338.577,
+                "0.81": 207.003,
+                "0.67": 152.03381000000002,
+                "0.41": 85.05587,
+                "0.36": 81.72006,
+                "0.4": 84.57305000000001,
+                "0.87": 269.356,
+                "0.51": 98.26972,
+                "0.27": 55.340920000000004,
+                "0.62": 134.79126000000002,
+                "0.76": 197.604,
+                "0.59": 125.28706,
+                "0.73": 168.73289000000003,
+                "0.18": 39.647,
+                "0.2": 46.635,
+                "0.84": 218.451,
+                "0.98": 465.789,
+                "0.07": 11.297,
+                "0.42": 86.25847,
+                "0.49": 94.87472,
+                "0.19": 42.49,
+                "0.82": 209.051,
+                "0.72": 164.829,
+                "0.8": 204.408,
+                "0.79": 201.202,
+                "0.21": 50.514,
+                "0.57": 118.50503999999998,
+                "0.55": 113.528,
+                "0.97": 437.608,
+                "0.54": 110.9774,
+                "0.31": 61.265,
+                "0.38": 82.83559,
+                "0.08": 11.964,
+                "0.7": 159.13264999999998,
+                "0.78": 199.439,
+                "0.68": 155.06099,
+                "0.96": 436.329,
+                "0.53": 104.00788000000003,
+                "0.95": 385.313,
+                "0.93": 371.506,
+                "0.71": 161.878,
+                "0.37": 82.12202,
+                "0.13": 28.386,
+                "0.44": 90.62564,
+                "0.04": 9.92,
+                "0.33": 78.30216,
+                "0.26": 55.119,
+                "0.22": 51.742,
+                "0.02": 7.539,
+                "0.17": 38.506,
+                "0.91": 315.449,
+                "0.24": 53.098,
+                "0.77": 198.125,
+                "0.66": 149.10383000000002,
+                "0.52": 103.111,
+                "0.01": 7.523,
+                "0.35": 80.8102,
+                "0.39": 83.86077,
+                "0.34": 80.317,
+                "0.48": 93.044,
+                "0.99": 510.551,
+                "0.63": 135.207,
+                "0.74": 172.76107,
+                "0.88": 271.592,
+                "0.06": 10.97,
+                "0.58": 121.39771999999998,
+                "0.94": 380.571,
+                "0.83": 214.53,
+                "0.69": 157.25102999999996,
+                "0.25": 54.2885,
+                "0.6": 129.0259,
+                "0.64": 140.56396,
+                "0.12": 28.249,
+                "0.85": 230.895,
+                "0.89": 274.399,
+                "0.3": 60.4278,
+                "0.32": 65.76992000000001,
+                "0.5": 96.5095,
+                "0.75": 181.006,
+                "0.11": 27.444,
+                "0.15": 35.704,
+                "0.16": 37.542,
+                "0.03": 8.026,
+                "0.29": 59.241789999999995,
+                "0.47": 92.99624
+            }
+        ],
+        [
+            "RemoveUnreferencedScalarSubqueries",
+            0,
+            0,
+            0,
+            "NaN",
+            {
+                "0.0": "NaN",
+                "0.28": "NaN",
+                "0.46": "NaN",
+                "0.14": "NaN",
+                "0.43": "NaN",
+                "0.45": "NaN",
+                "0.23": "NaN",
+                "0.86": "NaN",
+                "0.9": "NaN",
+                "0.09": "NaN",
+                "0.1": "NaN",
+                "0.61": "NaN",
+                "0.65": "NaN",
+                "0.56": "NaN",
+                "0.05": "NaN",
+                "0.92": "NaN",
+                "0.81": "NaN",
+                "0.67": "NaN",
+                "0.41": "NaN",
+                "0.36": "NaN",
+                "0.4": "NaN",
+                "0.87": "NaN",
+                "0.51": "NaN",
+                "0.27": "NaN",
+                "0.62": "NaN",
+                "0.76": "NaN",
+                "0.59": "NaN",
+                "0.73": "NaN",
+                "0.18": "NaN",
+                "0.2": "NaN",
+                "0.84": "NaN",
+                "0.98": "NaN",
+                "0.07": "NaN",
+                "0.42": "NaN",
+                "0.49": "NaN",
+                "0.19": "NaN",
+                "0.82": "NaN",
+                "0.72": "NaN",
+                "0.8": "NaN",
+                "0.79": "NaN",
+                "0.21": "NaN",
+                "0.57": "NaN",
+                "0.55": "NaN",
+                "0.97": "NaN",
+                "0.54": "NaN",
+                "0.31": "NaN",
+                "0.38": "NaN",
+                "0.08": "NaN",
+                "0.7": "NaN",
+                "0.78": "NaN",
+                "0.68": "NaN",
+                "0.96": "NaN",
+                "0.53": "NaN",
+                "0.95": "NaN",
+                "0.93": "NaN",
+                "0.71": "NaN",
+                "0.37": "NaN",
+                "0.13": "NaN",
+                "0.44": "NaN",
+                "0.04": "NaN",
+                "0.33": "NaN",
+                "0.26": "NaN",
+                "0.22": "NaN",
+                "0.02": "NaN",
+                "0.17": "NaN",
+                "0.91": "NaN",
+                "0.24": "NaN",
+                "0.77": "NaN",
+                "0.66": "NaN",
+                "0.52": "NaN",
+                "0.01": "NaN",
+                "0.35": "NaN",
+                "0.39": "NaN",
+                "0.34": "NaN",
+                "0.48": "NaN",
+                "0.99": "NaN",
+                "0.63": "NaN",
+                "0.74": "NaN",
+                "0.88": "NaN",
+                "0.06": "NaN",
+                "0.58": "NaN",
+                "0.94": "NaN",
+                "0.83": "NaN",
+                "0.69": "NaN",
+                "0.25": "NaN",
+                "0.6": "NaN",
+                "0.64": "NaN",
+                "0.12": "NaN",
+                "0.85": "NaN",
+                "0.89": "NaN",
+                "0.3": "NaN",
+                "0.32": "NaN",
+                "0.5": "NaN",
+                "0.75": "NaN",
+                "0.11": "NaN",
+                "0.15": "NaN",
+                "0.16": "NaN",
+                "0.03": "NaN",
+                "0.29": "NaN",
+                "0.47": "NaN"
+            }
+        ]
