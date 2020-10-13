@@ -3,6 +3,9 @@
     "files.associations": {
         "chrono": "c",
         "cstring": "c",
-        "functional": "c"
+        "functional": "c",
+        "*.tcc": "c",
+        "fstream": "c",
+        "sstream": "c"
     }
 }

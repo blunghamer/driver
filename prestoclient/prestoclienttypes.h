@@ -32,7 +32,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <curl/curl.h>
-#include "json.h"
+#include "jsonparser.h"
 
 /* --- Defines -------------------------------------------------------------------------------------------------------- */
 #define PRESTOCLIENT_QUERY_URL "v1/statement" 				// URL added to servername to start a query

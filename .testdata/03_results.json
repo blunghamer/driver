@@ -181,7 +181,7 @@
             "cPrestoClient",
             "PREPARE qry1 FROM select * from runtime.queries",
             [
-                "global"
+                "global", "stuff"
             ],
             0,
             0,
