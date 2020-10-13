@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-
 const char* const toks[10] = {
     "JSON_NULL",
     "JSON_FALSE",
@@ -20,7 +19,7 @@ const char* const toks[10] = {
     "JSON_OBJECT_END"
 };
 
-static int printval(const char* data, size_t size, char* sep) {
+static void printval(const char* data, size_t size, char* sep) {
     char *dat = (char*)malloc(sizeof(char)* (size + 1));
     strncpy(dat, data, size);
     dat[size] = '\0';
@@ -37,10 +36,17 @@ typedef struct JOURNAL {
     int inColumns;
     int inData;
     int inStats;
+    int inError;
     int inWarnings;
-    int inRawType;
-    int inColumnName;
-    int inValue;
+    int inColumnName;       //< column tags, name
+    int inRawType;          //< column tags, raw type name
+    int inValue;            //< column tag parameter to type name (such as length of varchar)
+    int state;
+    int info;
+    int next;
+    int partial;
+    int inErrorType;
+    int inErrorMessage;
 } JOURNAL;
 
 static int
@@ -63,7 +69,7 @@ test_dump_callback(JSON_TYPE typ, const char* data, size_t size, void* userdata)
             if (journal->inData){
                 if (journal->level == 2){
                     printf("\n");
-                } else if (journal->level = 3) {
+                } else if (journal->level == 3) {
                     printf("]");
                 }
             }
@@ -81,7 +87,7 @@ test_dump_callback(JSON_TYPE typ, const char* data, size_t size, void* userdata)
             journal->level--;
             journal->oclose++;
             if (journal->inData) {
-                if (journal->level = 3) {
+                if (journal->level == 3) {
                      printf("}");
                 }
             }
@@ -99,9 +105,22 @@ test_dump_callback(JSON_TYPE typ, const char* data, size_t size, void* userdata)
                     journal->inStats = 1;
                     journal->inData = 0;
                 }
+                else if (strncmp(data, "error", 8) == 0 ) {
+                    journal->inError = 1;
+                    journal->inStats = 0;
+                } 
                 else if (strncmp(data, "warnings", 8) == 0 ) {
                     journal->inWarnings = 1;
-                    journal->inStats = 0;
+                    journal->inError = 0;
+                } 
+                else if (strncmp(data, "infoUri", 7) == 0) {
+                    journal->info = 1;
+                } 
+                else if (strncmp(data, "nextUri", 7) == 0) {
+                    journal->next = 1;
+                } 
+                else if (strncmp(data, "partialCancelUri", 16) == 0) {
+                    journal->partial = 1;
                 }
             }
             else if (journal->inColumns) {
@@ -120,8 +139,24 @@ test_dump_callback(JSON_TYPE typ, const char* data, size_t size, void* userdata)
                     printval(data,size,":");
                 }
             }
+            else if (journal->inError) {
+                if (journal->level == 3) {
+                    if (strncmp(data, "type", 4) == 0) {
+                        journal->inErrorType = 1;
+                    } else if (strncmp(data, "message", 7) == 0) {
+                        journal->inErrorMessage = 1;    
+                    }
+                }
+            }
+            else if (journal->inStats) {
+                if (journal->level == 2) {
+                    if (strncmp(data, "state", 5) == 0) {
+                        journal->state = 1;
+                    }                 
+                }
+            }
             break;
-        case JSON_STRING:
+        case JSON_STRING:            
             if (journal->inColumns) {
                 if (journal->inColumnName) {
                     printval(data,size,";");
@@ -132,12 +167,25 @@ test_dump_callback(JSON_TYPE typ, const char* data, size_t size, void* userdata)
                     journal->inRawType = 0;
                 }
             }
-            if (journal->inData) {
+            else if (journal->inData) {
                 if (journal->level == 3){
                     printval(data,size,";");
                 }
                 else if (journal->level > 3) {
                     printval(data,size,",");
+                }
+            } else if (journal->inStats) {
+                if (journal->state) {
+                    printval(data, size, "\n");
+                    journal->state = 0;
+                }
+            } else if (journal->inError) {
+                if (journal->inErrorType) {
+                    printval(data, size, " => Errortype\n");
+                    journal->inErrorType = 0;
+                } else if (journal->inErrorMessage) {
+                    printval(data, size, " => Errormessage\n");
+                    journal->inErrorMessage = 0 ;
                 }
             }
             break;
@@ -154,8 +202,18 @@ test_dump_callback(JSON_TYPE typ, const char* data, size_t size, void* userdata)
                 journal->inValue = 0;
             }
             break;
+        case JSON_FALSE:
+        case JSON_TRUE:
+        case JSON_NULL:
+            if (journal->inData) {
+                if (journal->level == 3){
+                    printval(data,size,";");
+                } else if (journal->level > 3) {
+                    printval(data,size,",");
+                }
+            }
+            break;
     }
-
     return 0;
 }
 
@@ -168,8 +226,6 @@ int main() {
     printf("Result of open is %i\n", fd);
     int len = lseek(fd, 0, SEEK_END);
     void *data = mmap(0, len, PROT_READ, MAP_PRIVATE, fd, 0);
-
-    // json_parse((const char*) data, len , &callbacks, NULL, NULL, 0);    
 
     JSON_PARSER parser;
     JSON_INPUT_POS pdbg = {0};
