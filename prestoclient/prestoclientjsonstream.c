@@ -695,7 +695,7 @@ static void json_extract_variables(PRESTOCLIENT_RESULT *result)
 				result->columninfoprinted = true;
 
 				if (result->describe_callback_function)
-					result->describe_callback_function(result->client_object, (void*)result);
+					result->describe_callback_function(result->user_data, (void*)result);
 			}
 		}
 
@@ -716,7 +716,7 @@ static void json_extract_variables(PRESTOCLIENT_RESULT *result)
 			// Call rowdata callback function
 			result->dataavailable = true;
 			if (result->write_callback_function)
-				result->write_callback_function(result->client_object, (void*)result);
+				result->write_callback_function(result->user_data, (void*)result);
 		}
 	}
 	else if (result->lexer->tagorderactualsize > 3 &&
@@ -741,7 +741,7 @@ static void json_extract_variables(PRESTOCLIENT_RESULT *result)
 			// Call rowdata callback function
 			result->dataavailable = true;
 			if (result->write_callback_function)
-				result->write_callback_function(result->client_object, (void*)result);
+				result->write_callback_function(result->user_data, (void*)result);
 		}
 	}
 	//  Get URI's and state

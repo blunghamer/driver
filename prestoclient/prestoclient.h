@@ -106,6 +106,8 @@ enum E_CLIENTSTATUS
     PRESTOCLIENT_STATUS_FAILED
 };
 
+// actually there is QUEUED, RUNNING, FAILED, SUCCESS (TOBE FIXED) in the presto backend
+
 /* --- Structs -------------------------------------------------------------------------------------------------------- */
 /**
  * \brief  Query resultset used to interface with prestoclient. All members are private.

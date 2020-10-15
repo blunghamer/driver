@@ -214,6 +214,7 @@ json_process(JSON_PARSER* parser, JSON_TYPE type, const char* data, size_t size)
         parser->value_counter++;
     }
 
+    // printf("Callbacks! %i\n", &parser->callbacks.process);
     parser->errcode = parser->callbacks.process(type, data, size, parser->user_data);
 
     /* Update what the main automaton may see next. */

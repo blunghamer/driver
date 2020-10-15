@@ -1,6 +1,6 @@
 {
-    "id": "20201013_122404_00000_s322u",
-    "infoUri": "http://localhost:8080/ui/query.html?20201013_122404_00000_s322u",
+    "id": "20201014_110619_00024_piww2",
+    "infoUri": "http://localhost:8080/ui/query.html?20201014_110619_00024_piww2",
     "stats": {
         "state": "FAILED",
         "queued": false,
@@ -21,31 +21,30 @@
         "spilledBytes": 0
     },
     "error": {
-        "message": "line 1:13: mismatched input \u0027system\u0027. Expecting: \u0027FROM\u0027",
+        "message": "line 1:58: mismatched input \u0027;\u0027. Expecting: \u0027,\u0027, \u0027.\u0027, \u0027AS\u0027, \u0027CROSS\u0027, \u0027EXCEPT\u0027, \u0027FETCH\u0027, \u0027FULL\u0027, \u0027GROUP\u0027, \u0027HAVING\u0027, \u0027INNER\u0027, \u0027INTERSECT\u0027, \u0027JOIN\u0027, \u0027LEFT\u0027, \u0027LIMIT\u0027, \u0027NATURAL\u0027, \u0027OFFSET\u0027, \u0027ORDER\u0027, \u0027RIGHT\u0027, \u0027TABLESAMPLE\u0027, \u0027UNION\u0027, \u0027WHERE\u0027, \u003CEOF\u003E, \u003Cidentifier\u003E",
         "errorCode": 1,
         "errorName": "SYNTAX_ERROR",
         "errorType": "USER_ERROR",
         "errorLocation": {
             "lineNumber": 1,
-            "columnNumber": 13
+            "columnNumber": 58
         },
         "failureInfo": {
             "type": "io.prestosql.sql.parser.ParsingException",
-            "message": "line 1:13: mismatched input \u0027system\u0027. Expecting: \u0027FROM\u0027",
+            "message": "line 1:58: mismatched input \u0027;\u0027. Expecting: \u0027,\u0027, \u0027.\u0027, \u0027AS\u0027, \u0027CROSS\u0027, \u0027EXCEPT\u0027, \u0027FETCH\u0027, \u0027FULL\u0027, \u0027GROUP\u0027, \u0027HAVING\u0027, \u0027INNER\u0027, \u0027INTERSECT\u0027, \u0027JOIN\u0027, \u0027LEFT\u0027, \u0027LIMIT\u0027, \u0027NATURAL\u0027, \u0027OFFSET\u0027, \u0027ORDER\u0027, \u0027RIGHT\u0027, \u0027TABLESAMPLE\u0027, \u0027UNION\u0027, \u0027WHERE\u0027, \u003CEOF\u003E, \u003Cidentifier\u003E",
             "cause": {
                 "type": "org.antlr.v4.runtime.InputMismatchException",
                 "suppressed": [],
                 "stack": [
-                    "io.prestosql.sql.parser.SqlParser$2.recoverInline(SqlParser.java:130)",
+                    "io.prestosql.sql.parser.SqlParser$2.recoverInline(SqlParser.java:133)",
                     "org.antlr.v4.runtime.Parser.match(Parser.java:206)",
-                    "io.prestosql.sql.parser.SqlBaseParser.statement(SqlBaseParser.java:3932)",
-                    "io.prestosql.sql.parser.SqlBaseParser.singleStatement(SqlBaseParser.java:247)",
+                    "io.prestosql.sql.parser.SqlBaseParser.singleStatement(SqlBaseParser.java:249)",
                     "io.prestosql.sql.parser.SqlParser.invokeParser(SqlParser.java:156)",
                     "io.prestosql.sql.parser.SqlParser.createStatement(SqlParser.java:95)",
                     "io.prestosql.execution.QueryPreparer.prepareQuery(QueryPreparer.java:55)",
                     "io.prestosql.dispatcher.DispatchManager.createQueryInternal(DispatchManager.java:179)",
                     "io.prestosql.dispatcher.DispatchManager.lambda$createQuery$0(DispatchManager.java:148)",
-                    "io.prestosql.$gen.Presto_343____20201013_083114_2.run(Unknown Source)",
+                    "io.prestosql.$gen.Presto_343____20201014_080100_2.run(Unknown Source)",
                     "java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)",
                     "java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)",
                     "java.base/java.lang.Thread.run(Thread.java:834)"
@@ -58,21 +57,20 @@
                 "org.antlr.v4.runtime.Parser.notifyErrorListeners(Parser.java:544)",
                 "org.antlr.v4.runtime.DefaultErrorStrategy.reportInputMismatch(DefaultErrorStrategy.java:327)",
                 "org.antlr.v4.runtime.DefaultErrorStrategy.reportError(DefaultErrorStrategy.java:139)",
-                "io.prestosql.sql.parser.SqlBaseParser.statement(SqlBaseParser.java:4027)",
-                "io.prestosql.sql.parser.SqlBaseParser.singleStatement(SqlBaseParser.java:247)",
+                "io.prestosql.sql.parser.SqlBaseParser.singleStatement(SqlBaseParser.java:254)",
                 "io.prestosql.sql.parser.SqlParser.invokeParser(SqlParser.java:156)",
                 "io.prestosql.sql.parser.SqlParser.createStatement(SqlParser.java:95)",
                 "io.prestosql.execution.QueryPreparer.prepareQuery(QueryPreparer.java:55)",
                 "io.prestosql.dispatcher.DispatchManager.createQueryInternal(DispatchManager.java:179)",
                 "io.prestosql.dispatcher.DispatchManager.lambda$createQuery$0(DispatchManager.java:148)",
-                "io.prestosql.$gen.Presto_343____20201013_083114_2.run(Unknown Source)",
+                "io.prestosql.$gen.Presto_343____20201014_080100_2.run(Unknown Source)",
                 "java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)",
                 "java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)",
                 "java.base/java.lang.Thread.run(Thread.java:834)"
             ],
             "errorLocation": {
                 "lineNumber": 1,
-                "columnNumber": 13
+                "columnNumber": 58
             }
         }
     },

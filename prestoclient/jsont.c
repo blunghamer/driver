@@ -19,227 +19,60 @@ const char* const toks[10] = {
     "JSON_OBJECT_END"
 };
 
-static void printval(const char* data, size_t size, char* sep) {
-    char *dat = (char*)malloc(sizeof(char)* (size + 1));
-    strncpy(dat, data, size);
-    dat[size] = '\0';
-    printf("%s%s", dat,sep);
-    free(dat);
-}
-
-typedef struct JOURNAL {
-    size_t level;
-    size_t aopen;
-    size_t aclose;    
-    size_t oopen;
-    size_t oclose;
-    int inColumns;
-    int inData;
-    int inStats;
-    int inError;
-    int inWarnings;
-    int inColumnName;       //< column tags, name
-    int inRawType;          //< column tags, raw type name
-    int inValue;            //< column tag parameter to type name (such as length of varchar)
-    int state;
-    int info;
-    int next;
-    int partial;
-    int inErrorType;
-    int inErrorMessage;
-} JOURNAL;
-
-static int
-test_dump_callback(JSON_TYPE typ, const char* data, size_t size, void* userdata)
+int dummy_json_parser(JSON_TYPE typ, const char *data, size_t size, void *user_data)
 {
-    JOURNAL* journal = (JOURNAL*)userdata;
-    switch (typ) {  
-        case JSON_ARRAY_BEG:
-            journal->level++;
-            journal->aopen++;
-            if (journal->inData){
-                if (journal->level > 3) {
-                    printf("[");
-                }
-            }
-            break;
-        case JSON_ARRAY_END:
-            journal->level--;
-            journal->aclose++;
-            if (journal->inData){
-                if (journal->level == 2){
-                    printf("\n");
-                } else if (journal->level == 3) {
-                    printf("]");
-                }
-            }
-            break;
-        case JSON_OBJECT_BEG:
-            journal->level++;
-            journal->oopen++;
-            if (journal->inData) {
-                if (journal->level > 3) {
-                     printf("{");
-                }
-            }
-            break;
-        case JSON_OBJECT_END:
-            journal->level--;
-            journal->oclose++;
-            if (journal->inData) {
-                if (journal->level == 3) {
-                     printf("}");
-                }
-            }
-            break;
-        case JSON_KEY:
-            if (journal->level == 1) {
-                if (strncmp(data, "columns", 7) == 0) {
-                    journal->inColumns = 1;
-                }
-                else if (strncmp(data, "data", 4) == 0 ) {
-                    journal->inData = 1;
-                    journal->inColumns = 0;
-                }
-                else if (strncmp(data, "stats", 5) == 0 ) {
-                    journal->inStats = 1;
-                    journal->inData = 0;
-                }
-                else if (strncmp(data, "error", 8) == 0 ) {
-                    journal->inError = 1;
-                    journal->inStats = 0;
-                } 
-                else if (strncmp(data, "warnings", 8) == 0 ) {
-                    journal->inWarnings = 1;
-                    journal->inError = 0;
-                } 
-                else if (strncmp(data, "infoUri", 7) == 0) {
-                    journal->info = 1;
-                } 
-                else if (strncmp(data, "nextUri", 7) == 0) {
-                    journal->next = 1;
-                } 
-                else if (strncmp(data, "partialCancelUri", 16) == 0) {
-                    journal->partial = 1;
-                }
-            }
-            else if (journal->inColumns) {
-                if (strncmp(data, "rawType", 7) == 0) {
-                    journal->inRawType = 1;
-                } 
-                else if (strncmp(data, "name", 4) == 0) {
-                    journal->inColumnName = 1;
-                }
-                else if (strncmp(data, "value", 5) == 0) {
-                    journal->inValue = 1;
-                }
-            }
-            else if (journal->inData) {
-                if (journal->level > 3) {
-                    printval(data,size,":");
-                }
-            }
-            else if (journal->inError) {
-                if (journal->level == 3) {
-                    if (strncmp(data, "type", 4) == 0) {
-                        journal->inErrorType = 1;
-                    } else if (strncmp(data, "message", 7) == 0) {
-                        journal->inErrorMessage = 1;    
-                    }
-                }
-            }
-            else if (journal->inStats) {
-                if (journal->level == 2) {
-                    if (strncmp(data, "state", 5) == 0) {
-                        journal->state = 1;
-                    }                 
-                }
-            }
-            break;
-        case JSON_STRING:            
-            if (journal->inColumns) {
-                if (journal->inColumnName) {
-                    printval(data,size,";");
-                    journal->inColumnName = 0;
-                }
-                else if (journal->inRawType) {
-                    printval(data,size,";");
-                    journal->inRawType = 0;
-                }
-            }
-            else if (journal->inData) {
-                if (journal->level == 3){
-                    printval(data,size,";");
-                }
-                else if (journal->level > 3) {
-                    printval(data,size,",");
-                }
-            } else if (journal->inStats) {
-                if (journal->state) {
-                    printval(data, size, "\n");
-                    journal->state = 0;
-                }
-            } else if (journal->inError) {
-                if (journal->inErrorType) {
-                    printval(data, size, " => Errortype\n");
-                    journal->inErrorType = 0;
-                } else if (journal->inErrorMessage) {
-                    printval(data, size, " => Errormessage\n");
-                    journal->inErrorMessage = 0 ;
-                }
-            }
-            break;
-        case JSON_NUMBER:
-            if (journal->inData) {
-                if (journal->level == 3){
-                    printval(data,size,";");
-                } else if (journal->level > 3) {
-                    printval(data,size,",");
-                }
-            }
-            if (journal->inColumns && journal->inValue) {
-                printval(data,size,";");
-                journal->inValue = 0;
-            }
-            break;
-        case JSON_FALSE:
-        case JSON_TRUE:
-        case JSON_NULL:
-            if (journal->inData) {
-                if (journal->level == 3){
-                    printval(data,size,";");
-                } else if (journal->level > 3) {
-                    printval(data,size,",");
-                }
-            }
-            break;
-    }
+    printf("%s \n", toks[typ]);// debug_print_value(data,size,"DEBUG ");
     return 0;
 }
 
 static const JSON_CALLBACKS callbacks = {
-    test_dump_callback
+    dummy_json_parser
 };
 
+
 int main() {
-    int fd = open("../.testdata/03_results.json", O_RDONLY);
-    printf("Result of open is %i\n", fd);
+    char * fix = "\"]]}";
+
+    int fd = open("../.testdata/06_result_chunk.json", O_RDONLY);    
     int len = lseek(fd, 0, SEEK_END);
+    printf("Result of open is %i length is %i\n ", fd, len);
     void *data = mmap(0, len, PROT_READ, MAP_PRIVATE, fd, 0);
 
     JSON_PARSER parser;
-    JSON_INPUT_POS pdbg = {0};
-    JOURNAL jrnl = {0};
+    JSON_INPUT_POS pdbg = {0};    
     int ret;
 
-    ret = json_init(&parser, &callbacks, NULL, &jrnl);
-    if(ret != 0)
+    ret = json_init(&parser, &callbacks, NULL, NULL);
+    if(ret != 0) {
+        printf("Unable to init parser, retcode %i\n", ret);
         return ret;
+    }
 
     /* We rely on propagation of any error code into json_fini(). */
-    json_feed(&parser, (char*)data, len);
+    ret = json_feed(&parser, (char*)data, len);
+    if (ret != 0) {
+        printf("Unable to feed 1 parser, retcode %i\n", ret);
+        ret = json_fini(&parser, &pdbg);  
+        printf("Unable to finish 1 parser, retcode %i (offset: %li, column %li, line %li)\n", ret, pdbg.offset, pdbg.column_number, pdbg.line_number);  
+        return ret;
+    }
 
-    json_fini(&parser, &pdbg);
+    printf("End of part one\n");
+
+    ret = json_feed(&parser, fix, strlen(fix));
+    if (ret != 0) {
+        printf("Unable to feed 2 parser, retcode %i\n", ret);
+        ret = json_fini(&parser, &pdbg);  
+        printf("Unable to finish 2 parser, retcode %i (offset: %li, column %li, line %li)\n", ret, pdbg.offset, pdbg.column_number, pdbg.line_number);  
+        return ret;
+    }
+
+    printf("End of part two\n");
+
+    ret = json_fini(&parser, &pdbg);
+    if (ret != 0) {
+        printf("Unable to finish parser, retcode %i (offset: %li, column %li, line %li)\n", ret, pdbg.offset, pdbg.column_number, pdbg.line_number);
+    }
 
     munmap(data, len);
     return 0;

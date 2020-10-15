@@ -32,7 +32,9 @@
 #include <string.h>
 #include <stdbool.h>
 #include <curl/curl.h>
-#include "jsonparser.h"
+// #include "jsonparser.h"
+#include "json.h"
+#include "prestojson.h"
 
 /* --- Defines -------------------------------------------------------------------------------------------------------- */
 #define PRESTOCLIENT_QUERY_URL "v1/statement" 				// URL added to servername to start a query
@@ -71,7 +73,8 @@ typedef struct ST_PRESTOCLIENT_COLUMN
 	size_t                        precision;                    //!< precision of floars
 	size_t                        scale;                        //!< scale of floats after decimal sign
 	char						 *data;							//!< Buffer for fielddata
-	size_t				          datasize;						//!< Size of data buffer can be less then 
+	size_t				          databuffersize;				//!< Size of data buffer can be less then 	
+	size_t				          dataactualsize;				//!< Actualdatasize
 	bool						  dataisnull;					//!< Set to true if content of data is null
 	bool                          alias;						//!< Set to true if is an alias
 } PRESTOCLIENT_COLUMN;
@@ -95,13 +98,13 @@ typedef struct ST_PRESTOCLIENT_RESULT
 	char						 *curl_error_buffer;			//!< Buffer for storing curl error messages
 	void (*write_callback_function)(void*, void*);				//!< Functionpointer to client function handling queryoutput
 	void (*describe_callback_function)(void*, void*);			//!< Functionpointer to client function handling output description
-	void						 *client_object;				//!< Pointer to object to pass to client function
+	void						 *user_data;				    //!< Pointer to object to pass to callbacks above
 	char						 *lastinfouri;					//!< Uri to query information on the Presto server
 	char						 *lastnexturi;					//!< Uri to next dataframe on the Presto server
 	char						 *lastcanceluri;				//!< Uri to cancel query on the Presto server
 	char						 *laststate;					//!< State returned by last request to Presto server
 	char						 *lasterrormessage;				//!< Last error message returned by Presto server
-	char                         *query;						//!< query
+	char                         *query;						//!< query / sql 
 	char                         *prepared_stmt_name;           //!< prepared statement name
 	char                         *prepared_stmt_hdr;            //!< prepared statement header 
 	enum E_CLIENTSTATUS			  clientstatus;					//!< Status defined by PrestoClient: NONE, RUNNING, SUCCEEDED, FAILED
@@ -119,8 +122,10 @@ typedef struct ST_PRESTOCLIENT_RESULT
 	int							  currentdatacolumn;			//!< Index to datafield (columns array) currently handled or -1 when not parsing field data
 	bool						  dataavailable;				//!< Flag set to true if a row of data is available
 	enum E_RESULTCODES			  errorcode;					//!< Errorcode, set when terminating a request
-	JSONPARSER					 *json;							//!< Pointer to the json parser
-	JSONLEXER					 *lexer;						//!< Pointer to the json lexer
+	JSON_PARSER                  *jsonparser;                  	//!< json parser
+	void                         *parserstate;					//!< state machine to parse presto content / circular dependency...	  BOY THIS IS UGLY 
+	// JSONPARSER					 *json;							//!< Pointer to the json parser
+	// JSONLEXER					 *lexer;						//!< Pointer to the json lexer
 } PRESTOCLIENT_RESULT;
 
 typedef struct ST_PRESTOCLIENT
@@ -155,7 +160,7 @@ extern PRESTOCLIENT_COLUMN* new_prestocolumn();
 extern PRESTOCLIENT_TABLEBUFFER* new_tablebuffer();
 
 // JSON Functions
-extern bool json_reader(PRESTOCLIENT_RESULT* result);
+extern bool json_reader(PRESTOCLIENT_RESULT* result, char * contents, size_t size);
 
 
 #endif // EASYPTORA_PRESTOCLIENTTYPES_HH
