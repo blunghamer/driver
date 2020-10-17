@@ -102,7 +102,7 @@ START_TEST (test_can_use_schema)
 	int prc;
 	PRESTOCLIENT_RESULT* result;	
 	char *qry = "use system.runtime";
-	prc = prestoclient_query(pc, &result, qry, NULL, NULL, NULL);
+	prc = prestoclient_query(pc, &result, qry, NULL, NULL);
 	if (prc != PRESTO_OK)
 	{
 		printf("Could not start query '%s'\n", qry);	
@@ -122,7 +122,7 @@ START_TEST (test_can_query_information_schema)
 	int prc;
 	PRESTOCLIENT_RESULT* result;	
 	char *qry = "select * from information_schema.tables";
-	prc = prestoclient_query(pc, &result, qry, NULL, NULL, NULL);
+	prc = prestoclient_query(pc, &result, qry, NULL, NULL);
 	if (prc != PRESTO_OK)
 	{
 		printf("Could not start query '%s'\n", qry);	
@@ -142,7 +142,7 @@ START_TEST (test_bad_query_fails_with_errorcode)
 	int prc;
 	PRESTOCLIENT_RESULT* result;	
 	char *qry = "select * from information_schema.tables;";
-	prc = prestoclient_query(pc, &result, qry, NULL, NULL, NULL);
+	prc = prestoclient_query(pc, &result, qry, NULL, NULL);
 	if (prc != PRESTO_OK)
 	{
 		printf("Could not execute query '%s'\n", qry);	
@@ -190,7 +190,7 @@ START_TEST (test_can_prepare)
 	ck_assert_ptr_nonnull(result->columns);
 	ck_assert_int_eq(result->columncount, 15);
 
-	prc = prestoclient_execute(pc, result, NULL , NULL, NULL );
+	prc = prestoclient_execute(pc, result, NULL , NULL);
 	if (prc != PRESTO_OK)
 	{
 		printf("Could not execute prepared query '%s'\n", qry);		
@@ -212,16 +212,102 @@ START_TEST (test_can_query_mass_test)
 	int prc;
 	size_t idx;
 
-	for (idx = 0; idx < 100; idx++) {		
+	for (idx = 0; idx < 10; idx++) {		
 		PRESTOCLIENT_RESULT* result;	
 		char *qry = "select * from system.runtime.queries order by created desc ";
-		prc = prestoclient_query(pc, &result, qry, NULL, NULL, NULL);
+		prc = prestoclient_query(pc, &result, qry, NULL, NULL);
 		if (prc != PRESTO_OK)
 		{
 			printf("Could not start query '%s'\n", qry);		
 		}	
 		prestoclient_deleteresult(pc, result);	
 	}	
+}
+END_TEST
+
+/*
+	"select * from system.jdbc.types"
+	"show catalogs"
+*/
+START_TEST (test_can_use_and_then_query)
+{
+	int prc;
+	PRESTOCLIENT_RESULT* result;	
+	char *qry = "use system.runtime";
+	prc = prestoclient_query(pc, &result, qry, NULL, NULL);
+	if (prc != PRESTO_OK)
+	{
+		printf("Could not start query '%s'\n", qry);	
+		goto exit;
+	}	
+	prestoclient_deleteresult(pc, result);
+	result = NULL;
+
+	ck_assert_int_eq(PRESTO_OK, prc);
+	ck_assert_str_eq("system", pc->catalog);
+	ck_assert_str_eq("runtime", pc->schema);
+
+	
+	char *qry3 = "select * from system.runtime.nodes";
+	prc = prestoclient_query(pc, &result, qry3, NULL, NULL);
+	if (prc != PRESTO_OK)
+	{
+		printf("Could not execute query '%s'\n", qry);	
+		goto exit;
+	}
+	prestoclient_deleteresult(pc, result);	
+	result = NULL;
+	ck_assert_int_eq(PRESTO_OK, prc);	
+
+	char *qry4 = "select * from system.runtime.transactions";
+	prc = prestoclient_query(pc, &result, qry4, NULL, NULL);
+	if (prc != PRESTO_OK)
+	{
+		printf("Could not execute query '%s'\n", qry);	
+		goto exit;
+	}
+	prestoclient_deleteresult(pc, result);	
+	result = NULL;
+	ck_assert_int_eq(PRESTO_OK, prc);	
+
+
+	char *qry5 = "select * from system.runtime.optimizer_rule_stats";
+	prc = prestoclient_query(pc, &result, qry5, NULL, NULL);
+	if (prc != PRESTO_OK)
+	{
+		printf("Could not execute query '%s'\n", qry);	
+		goto exit;
+	}
+	prestoclient_deleteresult(pc, result);	
+	result = NULL;
+	ck_assert_int_eq(PRESTO_OK, prc);	
+
+	char *qry2 = "select * from system.information_schema.tables";
+	prc = prestoclient_query(pc, &result, qry2, NULL, NULL);
+	if (prc != PRESTO_OK)
+	{
+		printf("Could not execute query '%s'\n", qry);	
+		goto exit;
+	}
+	prestoclient_deleteresult(pc, result);	
+	result = NULL;
+	ck_assert_int_eq(PRESTO_OK, prc);	
+
+	char *qry6 = "select * from system.runtime.queries";
+	prc = prestoclient_query(pc, &result, qry6, NULL, NULL);
+	if (prc != PRESTO_OK)
+	{
+		printf("Could not execute query '%s'\n", qry);	
+		goto exit;
+	}
+	prestoclient_deleteresult(pc, result);	
+	result = NULL;
+	ck_assert_int_eq(PRESTO_OK, prc);	
+
+
+exit:
+	if (result)
+		prestoclient_deleteresult(pc, result);		
 }
 END_TEST
 
@@ -243,6 +329,7 @@ Suite * prestoclient_suite(void)
 	tcase_add_test(tc_core, test_bad_prepare_fails_with_errorcode);			
 	tcase_add_test(tc_core, test_can_use_schema);
 	tcase_add_test(tc_core, test_can_prepare);
+	tcase_add_test(tc_core, test_can_use_and_then_query);
 	
     suite_add_tcase(s, tc_core);
 

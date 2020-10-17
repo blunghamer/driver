@@ -24,7 +24,7 @@ enum JSON_RESULT_HEADER {
     CANCEL
 };
 
-typedef struct PARSINGSTATE {
+typedef struct IT_PARSINGSTATE {
     size_t level;
     size_t aopen;
     size_t aclose;    
@@ -32,6 +32,7 @@ typedef struct PARSINGSTATE {
     size_t oclose;
     enum JSON_RESULT_SECTION section;    //!< top level section
     enum JSON_RESULT_HEADER  header;     //!< top level direct values (urls, ids)
+    int currentdatacolumn;
     int inColumnName;                   //!< column tags, name
     int inRawType;                      //!< column tags, raw type name
     int inValue;                        //!< column tag parameter to type name (such as length of varchar)

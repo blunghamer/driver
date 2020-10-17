@@ -1081,7 +1081,7 @@ dbopen(DBC *d, char *name, char *dsn, char *sflag, char *ntflag, char *busy)
         d->presto_client = NULL;
     }
     unsigned int prt = 8080;
-    d->presto_client = prestoclient_init("http", "localhost", &prt, NULL, NULL, NULL, NULL, NULL, NULL, false);
+    d->presto_client = prestoclient_init("http", "localhost", &prt, NULL, NULL, NULL, NULL, NULL, NULL, true);
     if (!d->presto_client)
     {
         rc = PRESTO_ERROR;
@@ -1540,7 +1540,7 @@ drvprepare(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER queryLen)
     } else {
         // there are statements presto cannot prepare so we execute direct (dms, special keywords)
         dbtraceapi(d, "prestoclient_prepare execute direct...", (char *)s->query);
-        rc = prestoclient_query(d->presto_client, &presto_stmt, (char *)s->query, NULL, NULL, NULL);
+        rc = prestoclient_query(d->presto_client, &presto_stmt, (char *)s->query, NULL, NULL);
         if (rc != PRESTO_OK)
         {            
             if (presto_stmt)
@@ -1908,7 +1908,7 @@ drvexecute(SQLHSTMT stmt, int initial)
         return SQL_ERROR;
     }
 
-    ret = prestoclient_execute(d->presto_client, s->presto_stmt, NULL, NULL, NULL);
+    ret = prestoclient_execute(d->presto_client, s->presto_stmt, NULL, NULL);
     if (ret != PRESTO_OK)
     {
         printf("Execute error %i", ret);
@@ -1981,7 +1981,7 @@ drvexecutedirect(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER queryLen)
     errp = NULL;
     freeresult(s, -1);
 
-    ret = prestoclient_query(d->presto_client, &(s->presto_stmt), (char*)s->query, NULL, NULL, NULL);
+    ret = prestoclient_query(d->presto_client, &(s->presto_stmt), (char*)s->query, NULL, NULL);
     if (ret != PRESTO_OK)
     {
         printf("Execute error %i", ret);
@@ -2354,13 +2354,13 @@ drvcolattribute(SQLHSTMT stmt, SQLUSMALLINT col, SQLUSMALLINT id,
     case SQL_DESC_COUNT:
         v = s->presto_stmt->columncount;
         break;
-    // case SQL_DESC_CATALOG_NAME:
-    //     if (valc && valMax > 0)
-    //     {
-    //         strncpy(valc, c->db, valMax);
-    //         valc[valMax - 1] = '\0';
-    //     }
-    //     *valLen = strlen(c->db);
+    case SQL_DESC_CATALOG_NAME:
+        if (valc && valMax > 0)
+        {
+            strncpy(valc, c->catalog, valMax);
+            valc[valMax - 1] = '\0';
+        }
+        *valLen = strlen(c->catalog);
     checkLen:
         if (*valLen >= valMax)
         {
@@ -2370,21 +2370,20 @@ drvcolattribute(SQLHSTMT stmt, SQLUSMALLINT col, SQLUSMALLINT id,
         break;
     case SQL_COLUMN_LENGTH:
     case SQL_DESC_LENGTH:
-        // v = strlen(c->name);
-        v = c->bytesize;
+        v = strlen(c->name);
+        // v = c->bytesize;
         break;
     case SQL_COLUMN_LABEL:
-        // if (c->label)
-        // {
-        //     if (valc && valMax > 0)
-        //     {
-        //         strncpy(valc, c->label, valMax);
-        //         valc[valMax - 1] = '\0';
-        //     }
-        //     *valLen = strlen(c->label);
-        //     goto checkLen;
-        // }
-    /* fall through */
+        if (c->name) {
+           if (valc && valMax > 0)
+           {
+               strncpy(valc, c->name, valMax);
+               valc[valMax - 1] = '\0';
+           }
+           *valLen = strlen(c->name);
+           goto checkLen;
+        }
+        break;
     case SQL_COLUMN_NAME:
     case SQL_DESC_NAME:
         if (valc && valMax > 0)
@@ -2393,19 +2392,26 @@ drvcolattribute(SQLHSTMT stmt, SQLUSMALLINT col, SQLUSMALLINT id,
             valc[valMax - 1] = '\0';
         }
         *valLen = strlen(c->name);
-        goto checkLen;
-    case SQL_DESC_SCHEMA_NAME:
-    {
-        char *z = "";
-
-        if (valc && valMax > 0)
-        {
-            strncpy(valc, z, valMax);
-            valc[valMax - 1] = '\0';
+        goto checkLen;        
+    case SQL_DESC_SCHEMA_NAME:    
+        if (c->schema) {
+           if (valc && valMax > 0)
+           {
+               strncpy(valc, c->schema, valMax);
+               valc[valMax - 1] = '\0';
+           }
+           *valLen = strlen(c->schema);
+           goto checkLen;
         }
-        *valLen = strlen(z);
-        goto checkLen;
-    }
+        break;
+        // char *z = "";
+        // if (valc && valMax > 0)
+        // {
+        //     strncpy(valc, z, valMax);
+        //     valc[valMax - 1] = '\0';
+        // }
+        // *valLen = strlen(z);
+        // goto checkLen;
 #ifdef SQL_DESC_BASE_COLUMN_NAME
     // case SQL_DESC_BASE_COLUMN_NAME:
     //     if (strchr(c->column, '(') || strchr(c->column, ')'))
@@ -2491,16 +2497,33 @@ drvcolattribute(SQLHSTMT stmt, SQLUSMALLINT col, SQLUSMALLINT id,
 #ifdef SQL_DESC_BASE_TABLE_NAME
     case SQL_DESC_BASE_TABLE_NAME:
 #endif
-    // case SQL_DESC_TABLE_NAME:
-    //     if (valc && valMax > 0)
-    //     {
-    //         strncpy(valc, c->table, valMax);
-    //         valc[valMax - 1] = '\0';
-    //     }
-    //     *valLen = strlen(c->table);
-    //     goto checkLen;
-    case SQL_DESC_TYPE:
-        v = c->type;
+    case SQL_DESC_TABLE_NAME:
+        if (valc && valMax > 0)
+        {
+            strncpy(valc, c->table, valMax);
+            valc[valMax - 1] = '\0';
+        }
+        *valLen = strlen(c->table);
+        goto checkLen;
+    case SQL_DESC_TYPE:        
+        switch (c->type) {
+            case PRESTOCLIENT_TYPE_TIMESTAMP_WITH_TIME_ZONE:
+                /*fallthrough*/
+            case PRESTOCLIENT_TYPE_TIMESTAMP:
+                v = SQL_TIMESTAMP;
+                break;
+            case PRESTOCLIENT_TYPE_TIME_WITH_TIME_ZONE:
+                /*fallthrough*/
+            case PRESTOCLIENT_TYPE_TIME:
+                v = SQL_TIME;
+                break;
+            case PRESTOCLIENT_TYPE_VARCHAR:
+                v = SQL_VARCHAR;
+                break;
+            default:
+                SQL_VARCHAR;
+        }
+        break;
 #ifdef WINTERFACE
         if (s->nowchar[0] || s->nowchar[1])
         {
@@ -2943,7 +2966,9 @@ drvfetchscroll(SQLHSTMT stmt, SQLSMALLINT orient, SQLINTEGER offset)
     //         }
     //     }
     // }
-    if (s->presto_stmt->tablebuff->rowbuff)
+    
+    // guard, if query with no results, tablebuff is NULL
+    if (s->presto_stmt->tablebuff && s->presto_stmt->tablebuff->rowbuff)
     {        
         switch (orient)
         {
@@ -3884,7 +3909,6 @@ SQLGetInfoW(SQLHDBC dbc, SQLUSMALLINT type, SQLPOINTER val, SQLSMALLINT valMax,
  * @param nowchar when compiled with WINTERFACE don't use WCHAR
  * @result C type
  */
-
 static int
 mapdeftype(int type, int stype, int nosign, int nowchar)
 {
@@ -3966,6 +3990,8 @@ mapdeftype(int type, int stype, int nosign, int nowchar)
 	}
 	return type;
 }
+
+
 
 /**
  * Internal bind C variable to column of result set.
@@ -4280,12 +4306,24 @@ getrowdata(STMT *s, SQLUSMALLINT col, SQLSMALLINT otype,
 		*lenp = SQL_NULL_DATA;
 		goto done;
 	}
-    
+
 	//type = mapdeftype(type, s->cols[col].type, s->cols[col].nosign ? 1 : 0,
 	//				  s->nowchar[0]);
 
-    // just return chars...
-    type = SQL_C_CHAR;
+    // just some types are mapped    
+    switch (otype) {
+        case SQL_CHAR:
+        case SQL_VARCHAR:
+            type = SQL_C_CHAR;
+            break;
+        case SQL_TIMESTAMP:
+            type = SQL_C_TIMESTAMP;
+            break;
+        default:
+            printf("client wants %i, map to default char", otype);
+            type = SQL_C_CHAR;            
+    }
+    
 #if (defined(_WIN32) || defined(_WIN64)) && defined(WINTERFACE)
 	/* MS Access hack part 3 (map SQL_C_DEFAULT to SQL_C_CHAR) */
 	if (type == SQL_C_WCHAR && otype == SQL_C_DEFAULT)

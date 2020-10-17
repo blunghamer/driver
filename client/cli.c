@@ -58,42 +58,6 @@ QUERYDATA* querydata_new() {
 } 
 
 /*
- * The descibe callback function. This function will be called when the
- * column description data becomes available. You can use it to print header
- * information or examine column type info.
- */
-static void describe_callback_function(void *in_querydata, void *in_result)
-{
-	QUERYDATA *qdata = (QUERYDATA *)in_querydata;
-	PRESTOCLIENT_RESULT *result = (PRESTOCLIENT_RESULT *)in_result;
-	size_t columncount = prestoclient_getcolumncount(result);
-
-	if (!qdata->hdr_printed && columncount > 0)
-	{
-		/*
-		 * Print header row
-		 */
-		for (size_t i = 0; i < columncount; i++)
-			printf("%s%s", i > 0 ? ";" : "", prestoclient_getcolumnname(result, i));
-
-		printf("\n");
-
-		/*
-		 * Print datatype of each column
-		 */
-		for (size_t i = 0; i < columncount; i++)
-			printf("%s%s", i > 0 ? ";" : "", prestoclient_getcolumntypedescription(result, i));
-
-		printf("\n");
-
-		/*
-		 * Mark header as printed
-		 */
-		qdata->hdr_printed = true;
-	}
-}
-
-/*
  * The write callback function. This function will be called for every row of
  * query data.
  */
@@ -184,7 +148,7 @@ int main(int argc, char** argv)
 		goto exit;		
 	}
 	
-	prc = prestoclient_query(pc, &result, argv[2], &write_callback_function, &describe_callback_function, (void *)qdata);
+	prc = prestoclient_query(pc, &result, argv[2], &write_callback_function, (void *)qdata);
 	if (prc != PRESTO_OK)
 	{
 		printf("Could not start query '%s' on server '%s'\n", argv[2], argv[1]);

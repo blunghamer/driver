@@ -70,7 +70,7 @@ typedef struct ST_PRESTOCLIENT_COLUMN
 	char                         *table;						//!< table name or null
 	enum E_FIELDTYPES			  type;							//!< Type of field	
 	size_t                        bytesize;                     //!< max length of the datatype
-	size_t                        precision;                    //!< precision of floars
+	size_t                        precision;                    //!< precision of float / timestamp
 	size_t                        scale;                        //!< scale of floats after decimal sign
 	char						 *data;							//!< Buffer for fielddata
 	size_t				          databuffersize;				//!< Size of data buffer can be less then 	
@@ -91,41 +91,35 @@ typedef struct ST_PRESTOCLIENT_TABLEBUFFER
 
 typedef struct ST_PRESTOCLIENT PRESTOCLIENT;
 
+// way too many error fields ...
 typedef struct ST_PRESTOCLIENT_RESULT
 {
 	PRESTOCLIENT				 *client;						//!< Pointer to PRESTOCLIENT
 	CURL						 *hcurl;						//!< Handle to libCurl
 	char						 *curl_error_buffer;			//!< Buffer for storing curl error messages
 	void (*write_callback_function)(void*, void*);				//!< Functionpointer to client function handling queryoutput
-	void (*describe_callback_function)(void*, void*);			//!< Functionpointer to client function handling output description
 	void						 *user_data;				    //!< Pointer to object to pass to callbacks above
 	char						 *lastinfouri;					//!< Uri to query information on the Presto server
 	char						 *lastnexturi;					//!< Uri to next dataframe on the Presto server
 	char						 *lastcanceluri;				//!< Uri to cancel query on the Presto server
 	char						 *laststate;					//!< State returned by last request to Presto server
 	char						 *lasterrormessage;				//!< Last error message returned by Presto server
+	enum E_CLIENTSTATUS			  clientstatus;					//!< Status defined by PrestoClient: NONE, RUNNING, SUCCEEDED, FAILED
+	enum E_RESULTCODES			  errorcode;					//!< Errorcode, set when terminating a request
+
 	char                         *query;						//!< query / sql 
 	char                         *prepared_stmt_name;           //!< prepared statement name
 	char                         *prepared_stmt_hdr;            //!< prepared statement header 
-	enum E_CLIENTSTATUS			  clientstatus;					//!< Status defined by PrestoClient: NONE, RUNNING, SUCCEEDED, FAILED
-	bool						  cancelquery;					//!< Boolean, when set to true signals that query should be cancelled
-	char						 *lastresponse;					//!< Buffer for curl response
-	size_t						  lastresponsebuffersize;		//!< Maximum size of the curl buffer
-	size_t						  lastresponseactualsize;		//!< Actual size of the curl buffer
+
+	bool						  cancelquery;					//!< Boolean, when set to true signals that query should be cancelled	
 	PRESTOCLIENT_TABLEBUFFER     *tablebuff;                    //!< Buffer for result rows of the http fetch (should not be more than 16 MB of json in one go)
 	PRESTOCLIENT_COLUMN			**columns;						//!< Buffer for the column information returned by the query	
 	size_t      				  columncount;					//!< Number of columns in output or 0 if unknown	
 	PRESTOCLIENT_COLUMN         **parameters;					//!< Buffer for the parameters returned by the query	
 	size_t                        parametercount;				//!< Number of parameters in output or 0 if unknown
-	bool						  columninfoavailable;			//!< Flag set to true if columninfo is available and complete (also used for json lexer)
-	bool						  columninfoprinted;			//!< Flag set to true if columninfo has been printed to output	
-	int							  currentdatacolumn;			//!< Index to datafield (columns array) currently handled or -1 when not parsing field data
-	bool						  dataavailable;				//!< Flag set to true if a row of data is available
-	enum E_RESULTCODES			  errorcode;					//!< Errorcode, set when terminating a request
-	JSON_PARSER                  *jsonparser;                  	//!< json parser
-	void                         *parserstate;					//!< state machine to parse presto content / circular dependency...	  BOY THIS IS UGLY 
-	// JSONPARSER					 *json;							//!< Pointer to the json parser
-	// JSONLEXER					 *lexer;						//!< Pointer to the json lexer
+	
+	JSON_PARSER                  *jsonparser;                  	//!< json parser only transiently set
+	void                         *parserstate;					//!< state machine to parse presto content only transiently set => BOY THIS IS UGLY, Circular dependency
 } PRESTOCLIENT_RESULT;
 
 typedef struct ST_PRESTOCLIENT

@@ -305,7 +305,7 @@ char *fixupsql(char *sql, int sqlLen, int cte, size_t *nparam, int *sqltype, cha
         }
         if (isddl > 0)
         {
-            *sqltype = 2;
+            *sqltype = DDL;
         }
         else
         {
@@ -350,7 +350,7 @@ char *fixupsql(char *sql, int sqlLen, int cte, size_t *nparam, int *sqltype, cha
             size = strlen(p);
             if (size >= 6 && strncasecmp(p, "select", 6) == 0 )
             {
-                *sqltype = 1;
+                *sqltype = SELECT;
             }
             else if ( size >= 4 && 
                      ( 
@@ -359,19 +359,19 @@ char *fixupsql(char *sql, int sqlLen, int cte, size_t *nparam, int *sqltype, cha
                      ) 
                     )
             {
-                *sqltype = 3;
+                *sqltype = NON_PREPARABLE;
             }
             else if (cte && size >= 4 && strncasecmp(p, "with", 4) == 0)
             {
-                *sqltype = 1;
+                *sqltype = SELECT;
             }
             else if (size >= 7 && strncasecmp(p, "explain", 7) == 0)
             {
-                *sqltype = 3;
+                *sqltype = NON_PREPARABLE;
             }
             else
             {
-                *sqltype = 0;
+                *sqltype = OTHER;
             }
         }
     }

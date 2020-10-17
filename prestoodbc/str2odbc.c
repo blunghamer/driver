@@ -1,4 +1,5 @@
 #include "str2odbc.h"
+#include <stdio.h>
 
 /**
  * Return number of month days.
@@ -727,4 +728,111 @@ done:
 		return -1;
 	}
 	return 0;
+}
+
+ TIMESTAMP_MS timestamp_to_long(char *str) {
+	char buf[5];
+	struct tm ts;
+
+	strncpy(buf, str, 4);
+	buf[4] = 0;
+	ts.tm_year = (atoi(buf) - 1900);
+	//printf("year buf %s\n",buf);
+
+	strncpy(buf, (str + 5), 2);
+	buf[2] = 0;
+	ts.tm_mon = atoi(buf) - 1;
+	//printf("month buf %s\n",buf);
+
+	strncpy(buf, (str+8), 2);	
+	ts.tm_mday = atoi(buf);
+	//printf("day buf %s\n",buf);
+
+	strncpy(buf, (str+11), 2);
+	ts.tm_hour = atoi(buf);
+	//printf("hour buf %s\n",buf);
+
+	strncpy(buf, (str+14), 2);
+	ts.tm_min = atoi(buf);
+	//printf("minute buf %s\n",buf);
+
+	strncpy(buf, (str+17), 2);
+	ts.tm_sec = atoi(buf);
+	//printf("second buf %s\n",buf);
+
+	// printf("year %i month %i day %i hour %i minute %i second %i \n", year, month , day, hour, minute, second);
+	
+ 	// struct tm t;
+    time_t t_of_day;
+
+    ts.tm_isdst = -1;        // Is DST on? 1 = yes, 0 = no, -1 = unknown
+
+    t_of_day = mktime(&ts);
+	
+    // printf("seconds since the Epoch: %ld\n", (long)t_of_day);
+	return t_of_day * 1000 ;
+
+	// return (year * 365 + (year + 1) / 4 + mdays[month] + day) * 24*60*60UL;
+	// + tm->tm_hour * 60*60 + tm->tm_min * 60 + tm->tm_sec;
+}
+
+void ts_to_odbc(char *str, TIMESTAMP_STRUCT* ts) {
+	char buf[5];
+	// int year, month, day, hour, minute, second;
+
+	strncpy(buf, str, 4);
+	buf[4] = 0;
+	ts->year = atoi(buf);
+	// printf("year buf %s\n",buf);
+
+	strncpy(buf, (str + 5), 2);
+	buf[2] = 0;
+	ts->month = atoi(buf);
+	// printf("month buf %s\n",buf);
+
+	strncpy(buf, (str+8), 2);
+	//buf[2] = 0;
+	ts->day = atoi(buf);
+	// printf("day buf %s\n",buf);
+
+	strncpy(buf, (str+11), 2);
+	//buf[2] = 0;
+	ts->hour = atoi(buf);
+	// printf("hour buf %s\n",buf);
+
+	strncpy(buf, (str+14), 2);
+	//buf[2] = 0;
+	ts->minute = atoi(buf);
+	// printf("minute buf %s\n",buf);
+
+	strncpy(buf, (str+17), 2);
+	//buf[2] = 0;
+	ts->second = atoi(buf);
+	// printf("second buf %s\n",buf);
+
+	// printf("sqlts: year %i month %i day %i hour %i minute %i second %i \n", year, month , day, hour, minute, second);
+	/*
+	ts->year = year;
+	ts->month = month;
+	ts->day = day;
+	ts->hour = hour;
+	ts->minute = minute;
+	ts->second = second;
+	ts->fraction = 0;
+	*/
+}
+
+void dt_to_odbc(char *str, DATE_STRUCT * ds) {
+	char buf[5];
+
+	strncpy(buf, str, 4);
+	buf[4] = 0;
+	ds->year = atoi(buf);
+	
+	strncpy(buf, (str + 5), 2);
+	buf[2] = 0;
+	ds->month = atoi(buf);
+	
+	strncpy(buf, (str+8), 2);
+	ds->day = atoi(buf);	
 }

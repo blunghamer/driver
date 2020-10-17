@@ -66,33 +66,58 @@ enum E_FIELDTYPES
 {
 	PRESTOCLIENT_TYPE_UNDEFINED = 0,
 	// char types
-	PRESTOCLIENT_TYPE_VARCHAR,
-	PRESTOCLIENT_TYPE_CHAR,
-	PRESTOCLIENT_TYPE_VARBINARY,	
+	PRESTOCLIENT_TYPE_VARCHAR, 				// 1
+	PRESTOCLIENT_TYPE_CHAR,					// 2
+	PRESTOCLIENT_TYPE_VARBINARY,			// 3
 	// integers
-	PRESTOCLIENT_TYPE_TINYINT,
-	PRESTOCLIENT_TYPE_SMALLINT,
-	PRESTOCLIENT_TYPE_INTEGER,
-	PRESTOCLIENT_TYPE_BIGINT,
-	PRESTOCLIENT_TYPE_BOOLEAN,
+	PRESTOCLIENT_TYPE_TINYINT,				// 4
+	PRESTOCLIENT_TYPE_SMALLINT,				// 5
+	PRESTOCLIENT_TYPE_INTEGER,				// 6
+	PRESTOCLIENT_TYPE_BIGINT,				// 7
+	PRESTOCLIENT_TYPE_BOOLEAN,				// 8
 	// floating
-	PRESTOCLIENT_TYPE_REAL,
-	PRESTOCLIENT_TYPE_DOUBLE,
-	PRESTOCLIENT_TYPE_DECIMAL,
+	PRESTOCLIENT_TYPE_REAL,					// 9
+	PRESTOCLIENT_TYPE_DOUBLE,				// 19
+	PRESTOCLIENT_TYPE_DECIMAL,				// 11
 	// date and time
-	PRESTOCLIENT_TYPE_DATE,
-	PRESTOCLIENT_TYPE_TIME,
-	PRESTOCLIENT_TYPE_TIME_WITH_TIME_ZONE,
-	PRESTOCLIENT_TYPE_TIMESTAMP,
-	PRESTOCLIENT_TYPE_TIMESTAMP_WITH_TIME_ZONE,
-	PRESTOCLIENT_TYPE_INTERVAL_YEAR_TO_MONTH,
-	PRESTOCLIENT_TYPE_INTERVAL_DAY_TO_SECOND,
+	PRESTOCLIENT_TYPE_DATE,					// 12
+	PRESTOCLIENT_TYPE_TIME,					// 13
+	PRESTOCLIENT_TYPE_TIME_WITH_TIME_ZONE,	// 14
+	PRESTOCLIENT_TYPE_TIMESTAMP,			// 15
+	PRESTOCLIENT_TYPE_TIMESTAMP_WITH_TIME_ZONE, 	// 16
+	PRESTOCLIENT_TYPE_INTERVAL_YEAR_TO_MONTH, 		// 17
+	PRESTOCLIENT_TYPE_INTERVAL_DAY_TO_SECOND, 		// 18
 	// complex structural types
-	PRESTOCLIENT_TYPE_ARRAY,	
-    PRESTOCLIENT_TYPE_MAP,
-	PRESTOCLIENT_TYPE_JSON
+	PRESTOCLIENT_TYPE_ARRAY,						// 19
+    PRESTOCLIENT_TYPE_MAP, 							// 20
+	PRESTOCLIENT_TYPE_JSON							// 21
 };
 
+
+static size_t E_FIELDTYPES_SIZES[22] = {
+    0,
+    2147483647,
+	2147483647,
+	2147483647,
+	1,
+	2,
+	4,
+	8,
+	1,
+	8,
+	8,
+	8,
+	10,
+	12,
+	20,
+	23,
+	30,
+	20,
+	20,
+	2147483647,
+	2147483647,
+	2147483647
+};
 
 
 /**
@@ -186,8 +211,7 @@ void                    prestoclient_close                      (PRESTOCLIENT *p
 int    					prestoclient_query                      (PRESTOCLIENT *prestoclient
 																, PRESTOCLIENT_RESULT** result
                                                                 , const char *in_sql_statement
-                                                                , void (*in_write_callback_function)(void*, void*)
-                                                                , void (*in_describe_callback_function)(void*, void*)
+                                                                , void (*in_write_callback_function)(void*, void*)                                                                
                                                                 , void *in_client_object
                                                                 );
 
@@ -202,8 +226,7 @@ int    					prestoclient_prepare                    (PRESTOCLIENT *prestoclient
 
 int					    prestoclient_execute                    (PRESTOCLIENT *prestoclient
                                                                 ,PRESTOCLIENT_RESULT *prepared_result                                                                                                                              
-                                                                , void (*in_write_callback_function)(void*, void*)
-																, void (*in_describe_callback_function)(void*, void*)
+                                                                , void (*in_write_callback_function)(void*, void*)																
 																, void *in_client_object);
 
 void                    prestoclient_deleteresult               (PRESTOCLIENT *prestoclient

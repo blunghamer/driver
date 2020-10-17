@@ -15,6 +15,9 @@
         "numeric": "c",
         "ranges": "c",
         "utility": "c",
-        "valarray": "c"
+        "valarray": "c",
+        "cstdio": "c",
+        "array": "c",
+        "string": "c"
     }
 }
