@@ -1,6 +1,10 @@
 #ifndef _str2odbc_H
 #define _str2odbc_H
 
+#if defined(_WIN32) || defined(_WIN64)
+#include <windows.h>
+#endif
+
 #include <sql.h>
 #include <stddef.h>
 #include <string.h>

@@ -1,6 +1,10 @@
 #include "str2odbc.h"
 #include <stdio.h>
 
+#if defined(_WIN32) || defined(_WIN64)
+#include <locale.h>
+#endif
+
 /**
  * Return number of month days.
  * @param year
@@ -549,14 +553,14 @@ done:
 	/* Replace missing year/month/day with current date */
 	if (!err && (m & 1) == 0)
 	{
-#ifdef _WIN32
-		SYSTEMTIME t;
-
-		GetLocalTime(&t);
-		tss->year = t.wYear;
-		tss->month = t.wMonth;
-		tss->day = t.wDay;
-#else
+//#ifdef _WIN32
+//		SYSTEMTIME t;
+//
+//		GetLocalTime(&t);
+//		tss->year = t.wYear;
+//		tss->month = t.wMonth;
+//		tss->day = t.wDay;
+//#else
 		struct timeval tv;
 		struct tm tm;
 
@@ -565,7 +569,7 @@ done:
 		tss->year = tm.tm_year + 1900;
 		tss->month = tm.tm_mon + 1;
 		tss->day = tm.tm_mday;
-#endif
+//#endif
 	}
 	/* Normalize fraction */
 	if (tss->fraction < 0)

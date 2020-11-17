@@ -54,7 +54,7 @@ static const char space_chars[] = " \f\n\r\t\v";
 #define ISSPACE(c) ((c) && (strchr(space_chars, (c)) != 0))
 
 #if defined(_WIN32) || defined(_WIN64)
-#include "resource3.h"
+#include "resource.h"
 #define ODBC_INI "ODBC.INI"
 #ifndef DRIVER_VER_INFO
 #define DRIVER_VER_INFO VERSION
@@ -209,10 +209,6 @@ void xfree(void *p)
     }
 }
 
-#ifdef USE_DLOPEN_FOR_GPPS
-
-#include <dlfcn.h>
-
 /**
  * Get boolean flag from string.
  * @param string string to be inspected
@@ -228,6 +224,11 @@ getbool(char *string)
     }
     return 0;
 }
+
+
+#ifdef USE_DLOPEN_FOR_GPPS
+
+#include <dlfcn.h>
 
 #define SQLGetPrivateProfileString(A, B, C, D, E, F) drvgpps(d, A, B, C, D, E, F)
 
@@ -296,7 +297,9 @@ drvgpps(DBC *d, char *sect, char *ent, char *def, char *buf,
     buf[bufsiz - 1] = '\0';
     return 1;
 }
-#else
+#endif
+
+#if defined(_WIN32) || defined(_WIN64)
 #include <odbcinst.h>
 #define drvgetgpps(d)
 #define drvrelgpps(d)
@@ -3358,22 +3361,22 @@ drvgetinfo(SQLHDBC dbc, SQLUSMALLINT type, SQLPOINTER val, SQLSMALLINT valMax,
         strmak(val, d->dsn ? d->dsn : "", valMax, valLen);
         break;
     case SQL_DRIVER_NAME:
-#if defined(_WIN32) || defined(_WIN64)
-        GetModuleFileName(hModule, pathbuf, sizeof(pathbuf));
-        drvname = strrchr(pathbuf, '\\');
-        if (drvname == NULL)
-        {
-            drvname = strrchr(pathbuf, '/');
-        }
-        if (drvname == NULL)
-        {
-            drvname = pathbuf;
-        }
-        else
-        {
-            drvname++;
-        }
-#endif
+//#if defined(_WIN32) || defined(_WIN64)
+//        GetModuleFileName(hModule, pathbuf, sizeof(pathbuf));
+//        drvname = strrchr(pathbuf, '\\');
+//        if (drvname == NULL)
+//        {
+//            drvname = strrchr(pathbuf, '/');
+//        }
+//        if (drvname == NULL)
+//        {
+//            drvname = pathbuf;
+//        }
+//        else
+//        {
+//            drvname++;
+//        }
+//#endif
         strmak(val, drvname, valMax, valLen);
         break;
     case SQL_DRIVER_VER:
@@ -5137,13 +5140,13 @@ SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT col, SQLCHAR *name,
 		else
 		{
 			STMT *s = (STMT *)stmt;
-			COL *c = s->cols + col - 1;
-
+			//fixme:
+            //COL *c = s->cols + col - 1;
 			len = 0;
-			if (c->column)
-			{
-				len = strlen(c->column);
-			}
+			//if (c->column)
+			//{
+			//	len = strlen(c->column);
+			//}
 		}
 		if (nameLen)
 		{

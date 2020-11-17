@@ -4,7 +4,11 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#if defined(_WIN32) || defined(_WIN64)
+    
+#else
 #include <sys/mman.h>
+#endif
 
 const char* const toks[10] = {
     "JSON_NULL",
@@ -30,6 +34,12 @@ static const JSON_CALLBACKS callbacks = {
 };
 
 
+#if defined(_WIN32) || defined(_WIN64)
+int main() {
+    printf("should port to windows %s\n ", "mmap");
+    return 0;
+}    
+#else
 int main() {
     char * fix = "\"]]}";
 
@@ -77,3 +87,6 @@ int main() {
     munmap(data, len);
     return 0;
 }
+
+#endif
+

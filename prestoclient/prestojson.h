@@ -13,7 +13,7 @@ enum JSON_RESULT_SECTION {
     COLUMNS ,
     DATA ,
     STATS ,
-    ERROR , 
+    ERROR_SECTION , 
     WARNINGS 
 };
 

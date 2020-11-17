@@ -1,6 +1,11 @@
 #ifndef _simple_driver_H
 #define _simple_driver_H
 
+#if defined(_WIN32) || defined(_WIN64)
+#include <winsock2.h>
+#include <windows.h>
+#endif
+
 #include <odbcinst.h>
 #include <sql.h>
 #include <sqlext.h>
@@ -15,7 +20,10 @@
 #include "wcutils.h"
 #include "str2odbc.h"
 
-#define USE_DLOPEN_FOR_GPPS
+#if defined(_WIN32) || defined(_WIN64)
+#else
+    #define USE_DLOPEN_FOR_GPPS
+#endif
 
 struct dbc;
 struct stmt;

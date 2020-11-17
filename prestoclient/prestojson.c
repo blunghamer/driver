@@ -402,7 +402,7 @@ int presto_json_parser(JSON_TYPE typ, const char *data, size_t size, void *user_
             }
             else if (strncmp(data, "error", 5) == 0)
             {
-                pstate->section = ERROR;
+                pstate->section = ERROR_SECTION;
             }
             else if (strncmp(data, "warnings", 8) == 0)
             {
@@ -431,7 +431,7 @@ int presto_json_parser(JSON_TYPE typ, const char *data, size_t size, void *user_
                 append_column_value(data, size, pstate->currentdatacolumn, result, ':');                
             }
         }
-        else if (pstate->section == ERROR)
+        else if (pstate->section == ERROR_SECTION)
         {
             if (pstate->level == 2)
             {
@@ -531,7 +531,7 @@ int presto_json_parser(JSON_TYPE typ, const char *data, size_t size, void *user_
                 pstate->state = 0;
             }
         }
-        else if (pstate->section == ERROR)
+        else if (pstate->section == ERROR_SECTION)
         {
             if (pstate->inErrorType)
             {
@@ -584,7 +584,7 @@ int presto_json_parser(JSON_TYPE typ, const char *data, size_t size, void *user_
             }
             break;
         case ROOT:
-        case ERROR:
+        case ERROR_SECTION:
         case WARNINGS:
         case STATS:
             break;
